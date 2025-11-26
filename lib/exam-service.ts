@@ -14,6 +14,7 @@ type ApiExam = {
     code: string
     title: string
     status: ExamStatus
+    durationMinutes?: number | null
     createdAt: string
     updatedAt: string
     questions?: ApiQuestion[]
@@ -42,6 +43,7 @@ export interface CreateExamPayload {
     title: string
     authorId?: string
     status?: ExamStatus
+    durationMinutes?: number | null
     questions?: QuestionInput[]
 }
 
@@ -49,6 +51,7 @@ export interface UpdateExamPayload {
     title?: string
     status?: ExamStatus
     code?: string
+    durationMinutes?: number | null
     questions?: QuestionInput[]
 }
 
@@ -78,6 +81,7 @@ function mapExam(exam: ApiExam): Exam {
         code: exam.code,
         title: exam.title,
         status: exam.status,
+        durationMinutes: exam.durationMinutes ?? undefined,
         createdAt: exam.createdAt,
         questions: Array.isArray(exam.questions) ? exam.questions.map(mapQuestion) : [],
     }

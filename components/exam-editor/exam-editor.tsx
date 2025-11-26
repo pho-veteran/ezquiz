@@ -17,6 +17,7 @@ export interface ExamEditorSavePayload {
     status: Exam["status"]
     code: string
     questions: Question[]
+    durationMinutes?: number | null
 }
 
 interface ExamEditorProps {
@@ -138,6 +139,16 @@ export function ExamEditor({
     }
 
     const handleSaveExam = async () => {
+        // Warn if trying to publish without duration
+        if (draftExam.status === "PUBLISHED" && (!draftExam.durationMinutes || draftExam.durationMinutes <= 0)) {
+            const confirmed = window.confirm(
+                "Đề thi chưa có thời gian làm bài. Học sinh sẽ không thể làm bài nếu không có thời gian. Bạn có muốn tiếp tục lưu với trạng thái PUBLISHED không?"
+            )
+            if (!confirmed) {
+                return
+            }
+        }
+
         try {
             setIsSaving(true)
             const updatedExam = await onSave({
@@ -145,6 +156,7 @@ export function ExamEditor({
                 status: draftExam.status,
                 code: draftExam.code,
                 questions: draftExam.questions,
+                durationMinutes: draftExam.durationMinutes,
             })
             const normalized = normalizeExam(updatedExam)
             setDraftExam(normalized)
@@ -188,6 +200,7 @@ export function ExamEditor({
                     code={draftExam.code}
                     questionCount={draftExam.questions.length}
                     status={draftExam.status}
+                    durationMinutes={draftExam.durationMinutes}
                     onTitleChange={(value) =>
                         setDraftExam((current) => ({
                             ...current,
@@ -198,6 +211,12 @@ export function ExamEditor({
                         setDraftExam((current) => ({
                             ...current,
                             status: value,
+                        }))
+                    }
+                    onDurationChange={(value) =>
+                        setDraftExam((current) => ({
+                            ...current,
+                            durationMinutes: value,
                         }))
                     }
                     onBack={onBack}

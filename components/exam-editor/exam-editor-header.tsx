@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import {
     DropdownMenu,
@@ -22,8 +23,10 @@ interface ExamEditorHeaderProps {
     code: string
     questionCount: number
     status: ExamStatus
+    durationMinutes?: number | null
     onTitleChange: (value: string) => void
     onStatusChange: (value: ExamStatus) => void
+    onDurationChange?: (value: number | null) => void
     onBack?: () => void
     onPrimaryAction?: () => void
     primaryActionLabel?: string
@@ -58,8 +61,10 @@ export function ExamEditorHeader({
     code,
     questionCount,
     status,
+    durationMinutes,
     onTitleChange,
     onStatusChange,
+    onDurationChange,
     onBack,
     onPrimaryAction,
     primaryActionLabel = "Lưu đề thi",
@@ -146,6 +151,38 @@ export function ExamEditorHeader({
                             <Separator orientation="vertical" className="hidden h-4 sm:block" />
 
                             <span>{questionCount} câu hỏi</span>
+
+                            {onDurationChange && (
+                                <>
+                                    <Separator orientation="vertical" className="hidden h-4 sm:block" />
+                                    <div className="flex items-center gap-2">
+                                        <Label htmlFor="duration" className="text-xs whitespace-nowrap">
+                                            Thời gian:
+                                        </Label>
+                                        <Input
+                                            id="duration"
+                                            type="number"
+                                            min="1"
+                                            step="1"
+                                            value={durationMinutes ?? ""}
+                                            onChange={(e) => {
+                                                const value = e.target.value
+                                                if (value === "") {
+                                                    onDurationChange(null)
+                                                } else {
+                                                    const num = parseInt(value, 10)
+                                                    if (!isNaN(num) && num > 0) {
+                                                        onDurationChange(num)
+                                                    }
+                                                }
+                                            }}
+                                            placeholder="Phút"
+                                            className="w-20 h-7 text-xs"
+                                        />
+                                        <span className="text-xs text-muted-foreground">phút</span>
+                                    </div>
+                                </>
+                            )}
                         </div>
                     </div>
                     <div className="flex flex-wrap gap-2">

@@ -8,7 +8,7 @@ const OBJECT_ID_REGEX = /^[a-f\d]{24}$/i
 const examInclude = {
     questions: {
         orderBy: {
-            createdAt: "asc",
+            createdAt: "asc" as const,
         },
     },
     author: {
@@ -153,7 +153,7 @@ export async function PATCH(
         }
 
         const body = await request.json()
-        const { title, status, code, questions } = body ?? {}
+        const { title, status, code, durationMinutes, questions } = body ?? {}
 
         const trimmedTitle =
             title === undefined ? undefined : typeof title === "string" ? title.trim() : ""
@@ -224,6 +224,14 @@ export async function PATCH(
                         ...(trimmedTitle !== undefined && { title: trimmedTitle }),
                         ...(trimmedCode !== undefined && { code: trimmedCode }),
                         ...(normalizedStatus && { status: normalizedStatus }),
+                        ...(durationMinutes !== undefined && {
+                            durationMinutes:
+                                durationMinutes === null || durationMinutes === ""
+                                    ? null
+                                    : typeof durationMinutes === "number" && durationMinutes > 0
+                                      ? durationMinutes
+                                      : null,
+                        }),
                     },
                 })
             }

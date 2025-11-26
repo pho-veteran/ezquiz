@@ -142,6 +142,16 @@ export default function CreateExamFlow() {
             return
         }
 
+        // Warn if duration is not set
+        if (!draftExam?.durationMinutes || draftExam.durationMinutes <= 0) {
+            const confirmed = window.confirm(
+                "Đề thi chưa có thời gian làm bài. Học sinh sẽ không thể làm bài nếu không có thời gian. Bạn có muốn tiếp tục xuất bản không?"
+            )
+            if (!confirmed) {
+                return
+            }
+        }
+
         try {
             setIsPublishing(true)
             const updatedExam = await updateExam(

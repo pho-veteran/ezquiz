@@ -12,6 +12,7 @@ export interface Exam {
     title: string;
     createdAt: string; // ISO String
     status: "DRAFT" | "PUBLISHED" | "ENDED";
+    durationMinutes?: number | null; // Optional time limit in minutes
     questions: Question[];
 }
 

@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json()
-        const { code, title, status, authorId, questions } = body ?? {}
+        const { code, title, status, authorId, durationMinutes, questions } = body ?? {}
 
         const trimmedCode = typeof code === "string" ? code.trim() : ""
         const trimmedTitle = typeof title === "string" ? title.trim() : ""
@@ -128,6 +128,14 @@ export async function POST(request: NextRequest) {
                 title: trimmedTitle,
                 status: normalizedStatus ?? DEFAULT_EXAM_STATUS,
                 ...(authorId && { authorId }),
+                ...(durationMinutes !== undefined && {
+                    durationMinutes:
+                        durationMinutes === null || durationMinutes === ""
+                            ? null
+                            : typeof durationMinutes === "number" && durationMinutes > 0
+                              ? durationMinutes
+                              : null,
+                }),
                 ...(validatedQuestions.length > 0 && {
                     questions: {
                         create: validatedQuestions.map((question) => ({
