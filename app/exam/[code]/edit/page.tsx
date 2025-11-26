@@ -317,6 +317,22 @@ export default function EditExamPage() {
                                             })}
                                         </RadioGroup>
                                     </div>
+
+                                    <Separator />
+
+                                    {/* Explanation */}
+                                    <div className="space-y-2">
+                                        <Label className="text-base font-semibold">Giải thích đáp án (Tùy chọn)</Label>
+                                        <p className="text-sm text-muted-foreground">
+                                            Giải thích sẽ hiển thị cho học sinh sau khi nộp bài
+                                        </p>
+                                        <Textarea
+                                            value={selectedQuestion.explanation || ""}
+                                            onChange={(e) => handleUpdateQuestion(selectedQuestion.id, { explanation: e.target.value })}
+                                            placeholder="Nhập giải thích cho đáp án đúng..."
+                                            className="min-h-[100px]"
+                                        />
+                                    </div>
                                 </CardContent>
                             </Card>
 

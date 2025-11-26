@@ -106,8 +106,8 @@ export default function CreateExamFlow() {
                         <div key={step.number} className="flex items-center flex-1">
                             <div className="flex flex-col items-center flex-1">
                                 <div className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-colors ${currentStep >= step.number
-                                        ? 'bg-primary text-primary-foreground'
-                                        : 'bg-gray-200 text-gray-500'
+                                    ? 'bg-primary text-primary-foreground'
+                                    : 'bg-gray-200 text-gray-500'
                                     }`}>
                                     {currentStep > step.number ? (
                                         <CheckCircle2 className="w-5 h-5" />
@@ -246,7 +246,7 @@ export default function CreateExamFlow() {
                         </div>
                         <div className="space-y-2">
                             <h3 className="text-2xl font-bold text-green-700">Xuất bản thành công!</h3>
-                            <p className="text-muted-foreground">Đề thi "{examTitle}" đã sẵn sàng.</p>
+                            <p className="text-muted-foreground">Đề thi &quot;{examTitle}&rdquo; đã sẵn sàng.</p>
                         </div>
 
                         <div className="bg-gray-100 p-6 rounded-lg max-w-md mx-auto">

@@ -3,6 +3,7 @@ export interface Question {
     text: string;
     options: string[];
     correctAnswer: number; // 0-3 index
+    explanation?: string; // Optional explanation for the correct answer
 }
 
 export interface Exam {
