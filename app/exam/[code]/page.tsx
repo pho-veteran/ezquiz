@@ -14,7 +14,7 @@ const MOCK_EXAM_DATA = {
     title: "Kiểm tra kiến thức chung",
     questions: Array.from({ length: 75 }, (_, i) => ({
         id: `q${i + 1}`,
-        text: `Câu ${i + 1}: Đây là nội dung câu hỏi số ${i + 1}?`,
+        content: `Câu ${i + 1}: Đây là nội dung câu hỏi số ${i + 1}?`,
         options: ["Đáp án A", "Đáp án B", "Đáp án C", "Đáp án D"],
     }))
 }
@@ -100,7 +100,7 @@ export default function ExamPage() {
                                                 {questionNumber}
                                             </div>
                                             <CardTitle className="text-base font-medium flex-1">
-                                                {question.text}
+                                                {question.content}
                                             </CardTitle>
                                         </div>
                                     </CardHeader>

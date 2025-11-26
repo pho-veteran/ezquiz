@@ -22,8 +22,8 @@ export function ExamCard({ exam }: ExamCardProps) {
             <CardHeader>
                 <div className="flex items-start justify-between">
                     <CardTitle className="line-clamp-1 text-lg">{exam.title}</CardTitle>
-                    <Badge variant={exam.status === "published" ? "default" : "secondary"}>
-                        {exam.status === "published" ? "Đã xuất bản" : "Nháp"}
+                    <Badge variant={exam.status === "PUBLISHED" ? "default" : "secondary"}>
+                        {exam.status === "PUBLISHED" ? "Đã xuất bản" : exam.status === "ENDED" ? "Đã kết thúc" : "Nháp"}
                     </Badge>
                 </div>
                 <CardDescription className="flex items-center gap-2">

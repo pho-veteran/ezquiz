@@ -1,5 +1,62 @@
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { NextRequest, NextResponse } from "next/server"
+import { prisma } from "@/lib/prisma"
+import { EXAM_STATUSES, normalizeExamStatus } from "@/lib/exam-status"
+import { validateQuestionsPayload } from "@/lib/exam-validation"
+
+const OBJECT_ID_REGEX = /^[a-f\d]{24}$/i
+
+const examInclude = {
+    questions: {
+        orderBy: {
+            createdAt: "asc",
+        },
+    },
+    author: {
+        select: {
+            id: true,
+            name: true,
+            email: true,
+        },
+    },
+}
+
+type ExamIdentifier =
+    | {
+          field: "id"
+          value: string
+      }
+    | {
+          field: "code"
+          value: string
+      }
+
+function isValidObjectId(value?: string | null): value is string {
+    return typeof value === "string" && OBJECT_ID_REGEX.test(value)
+}
+
+function resolveExamIdentifier(request: NextRequest, paramsId?: string): ExamIdentifier | null {
+    const trimmedParam = paramsId?.trim()
+    const { searchParams } = new URL(request.url)
+    const codeFromQuery = searchParams.get("code")?.trim()
+
+    if (isValidObjectId(trimmedParam)) {
+        return { field: "id", value: trimmedParam }
+    }
+
+    if (codeFromQuery) {
+        return { field: "code", value: codeFromQuery }
+    }
+
+    if (trimmedParam) {
+        return { field: "code", value: trimmedParam }
+    }
+
+    return null
+}
+
+function buildWhereClause(identifier: ExamIdentifier) {
+    return identifier.field === "id" ? { id: identifier.value } : { code: identifier.value }
+}
 
 /**
  * GET /api/exams/[id]
@@ -10,25 +67,23 @@ export async function GET(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const { id } = await params;
+        const { id } = await params
+        const identifier = resolveExamIdentifier(request, id)
+
+        if (!identifier) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: "Exam identifier is required.",
+                },
+                { status: 400 }
+            )
+        }
 
         const exam = await prisma.exam.findUnique({
-            where: { id },
-            include: {
-                questions: {
-                    orderBy: {
-                        createdAt: "asc",
-                    },
-                },
-                author: {
-                    select: {
-                        id: true,
-                        name: true,
-                        email: true,
-                    },
-                },
-            },
-        });
+            where: buildWhereClause(identifier),
+            include: examInclude,
+        })
 
         if (!exam) {
             return NextResponse.json(
@@ -37,22 +92,22 @@ export async function GET(
                     error: "Exam not found",
                 },
                 { status: 404 }
-            );
+            )
         }
 
         return NextResponse.json({
             success: true,
             data: exam,
-        });
+        })
     } catch (error) {
-        console.error("Error fetching exam:", error);
+        console.error("Error fetching exam:", error)
         return NextResponse.json(
             {
                 success: false,
                 error: "Failed to fetch exam",
             },
             { status: 500 }
-        );
+        )
     }
 }
 
@@ -65,14 +120,27 @@ export async function PATCH(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const { id } = await params;
-        const body = await request.json();
-        const { title, status, code } = body;
+        const { id } = await params
+        const identifier = resolveExamIdentifier(request, id)
 
-        // Check if exam exists
+        if (!identifier) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: "Exam identifier is required.",
+                },
+                { status: 400 }
+            )
+        }
+
         const existingExam = await prisma.exam.findUnique({
-            where: { id },
-        });
+            where: buildWhereClause(identifier),
+            include: {
+                questions: {
+                    select: { id: true },
+                },
+            },
+        })
 
         if (!existingExam) {
             return NextResponse.json(
@@ -81,14 +149,55 @@ export async function PATCH(
                     error: "Exam not found",
                 },
                 { status: 404 }
-            );
+            )
         }
 
-        // If updating code, check for uniqueness
-        if (code && code !== existingExam.code) {
+        const body = await request.json()
+        const { title, status, code, questions } = body ?? {}
+
+        const trimmedTitle =
+            title === undefined ? undefined : typeof title === "string" ? title.trim() : ""
+        const trimmedCode =
+            code === undefined ? undefined : typeof code === "string" ? code.trim() : ""
+        const normalizedStatus = status === undefined ? undefined : normalizeExamStatus(status)
+
+        const errors: string[] = []
+
+        if (trimmedTitle !== undefined && trimmedTitle.length === 0) {
+            errors.push("Title cannot be empty.")
+        }
+
+        if (trimmedCode !== undefined && trimmedCode.length === 0) {
+            errors.push("Code cannot be empty.")
+        }
+
+        if (status !== undefined && !normalizedStatus) {
+            errors.push(`Invalid status. Accepted values: ${EXAM_STATUSES.join(", ")}.`)
+        }
+
+        const {
+            questions: validatedQuestions,
+            errors: questionErrors,
+        } = validateQuestionsPayload(questions)
+
+        if (questionErrors.length > 0) {
+            errors.push(...questionErrors)
+        }
+
+        if (errors.length > 0) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: errors.join(" "),
+                },
+                { status: 400 }
+            )
+        }
+
+        if (trimmedCode && trimmedCode !== existingExam.code) {
             const codeExists = await prisma.exam.findUnique({
-                where: { code },
-            });
+                where: { code: trimmedCode },
+            })
 
             if (codeExists) {
                 return NextResponse.json(
@@ -97,43 +206,97 @@ export async function PATCH(
                         error: "Exam code already exists",
                     },
                     { status: 409 }
-                );
+                )
             }
         }
 
-        // Update exam
-        const updatedExam = await prisma.exam.update({
-            where: { id },
-            data: {
-                ...(title && { title }),
-                ...(status && { status }),
-                ...(code && { code }),
-            },
-            include: {
-                questions: true,
-                author: {
-                    select: {
-                        id: true,
-                        name: true,
-                        email: true,
+        const shouldSyncQuestions = Array.isArray(questions)
+
+        const updatedExam = await prisma.$transaction(async (tx) => {
+            if (
+                trimmedTitle !== undefined ||
+                trimmedCode !== undefined ||
+                normalizedStatus !== undefined
+            ) {
+                await tx.exam.update({
+                    where: { id: existingExam.id },
+                    data: {
+                        ...(trimmedTitle !== undefined && { title: trimmedTitle }),
+                        ...(trimmedCode !== undefined && { code: trimmedCode }),
+                        ...(normalizedStatus && { status: normalizedStatus }),
                     },
-                },
-            },
-        });
+                })
+            }
+
+            if (shouldSyncQuestions) {
+                const questionIdsToKeep = validatedQuestions
+                    .map((question) => question.id)
+                    .filter((questionId): questionId is string => Boolean(questionId))
+
+                if (questionIdsToKeep.length > 0) {
+                    await tx.question.deleteMany({
+                        where: {
+                            examId: existingExam.id,
+                            id: {
+                                notIn: questionIdsToKeep,
+                            },
+                        },
+                    })
+                } else {
+                    await tx.question.deleteMany({
+                        where: { examId: existingExam.id },
+                    })
+                }
+
+                for (const question of validatedQuestions) {
+                    if (question.id) {
+                        const result = await tx.question.updateMany({
+                            where: { id: question.id, examId: existingExam.id },
+                            data: {
+                                content: question.content,
+                                options: question.options,
+                                correctIdx: question.correctIdx,
+                                explanation: question.explanation ?? "",
+                            },
+                        })
+
+                        if (result.count === 0) {
+                            throw new Error(`Question ${question.id} does not belong to this exam.`)
+                        }
+                    } else {
+                        await tx.question.create({
+                            data: {
+                                content: question.content,
+                                options: question.options,
+                                correctIdx: question.correctIdx,
+                                explanation: question.explanation ?? "",
+                                examId: existingExam.id,
+                            },
+                        })
+                    }
+                }
+            }
+
+            return tx.exam.findUnique({
+                where: { id: existingExam.id },
+                include: examInclude,
+            })
+        })
 
         return NextResponse.json({
             success: true,
             data: updatedExam,
-        });
+        })
     } catch (error) {
-        console.error("Error updating exam:", error);
+        console.error("Error updating exam:", error)
         return NextResponse.json(
             {
                 success: false,
-                error: "Failed to update exam",
+                error:
+                    error instanceof Error ? error.message : "Failed to update exam. Please try again.",
             },
             { status: 500 }
-        );
+        )
     }
 }
 
@@ -146,12 +309,22 @@ export async function DELETE(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const { id } = await params;
+        const { id } = await params
+        const identifier = resolveExamIdentifier(request, id)
 
-        // Check if exam exists
+        if (!identifier) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: "Exam identifier is required.",
+                },
+                { status: 400 }
+            )
+        }
+
         const exam = await prisma.exam.findUnique({
-            where: { id },
-        });
+            where: buildWhereClause(identifier),
+        })
 
         if (!exam) {
             return NextResponse.json(
@@ -160,26 +333,25 @@ export async function DELETE(
                     error: "Exam not found",
                 },
                 { status: 404 }
-            );
+            )
         }
 
-        // Delete exam (questions will be deleted automatically due to cascade)
         await prisma.exam.delete({
-            where: { id },
-        });
+            where: { id: exam.id },
+        })
 
         return NextResponse.json({
             success: true,
             message: "Exam deleted successfully",
-        });
+        })
     } catch (error) {
-        console.error("Error deleting exam:", error);
+        console.error("Error deleting exam:", error)
         return NextResponse.json(
             {
                 success: false,
                 error: "Failed to delete exam",
             },
             { status: 500 }
-        );
+        )
     }
 }

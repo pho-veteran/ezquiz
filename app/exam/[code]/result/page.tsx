@@ -13,9 +13,9 @@ const MOCK_EXAM_DATA = {
     title: "Kiểm tra kiến thức chung",
     questions: Array.from({ length: 10 }, (_, i) => ({
         id: `q${i + 1}`,
-        text: `Câu ${i + 1}: Đây là nội dung câu hỏi số ${i + 1}?`,
+        content: `Câu ${i + 1}: Đây là nội dung câu hỏi số ${i + 1}?`,
         options: ["Đáp án A", "Đáp án B", "Đáp án C", "Đáp án D"],
-        correctAnswer: Math.floor(Math.random() * 4),
+        correctIdx: Math.floor(Math.random() * 4),
         explanation: i % 2 === 0 ? `Giải thích cho câu ${i + 1}: Đây là lý do tại sao đáp án ${String.fromCharCode(65 + Math.floor(Math.random() * 4))} là đúng. Bạn cần nắm vững kiến thức về phần này để trả lời chính xác.` : undefined
     }))
 }
@@ -44,7 +44,7 @@ export default function ResultPage() {
 
     // Calculate correct answers
     const correctCount = MOCK_EXAM_DATA.questions.filter(
-        (q) => MOCK_USER_ANSWERS[q.id] === q.correctAnswer
+        (q) => MOCK_USER_ANSWERS[q.id] === q.correctIdx
     ).length
 
     let message = ""
@@ -110,7 +110,7 @@ export default function ResultPage() {
 
                     {MOCK_EXAM_DATA.questions.map((question, index) => {
                         const userAnswer = MOCK_USER_ANSWERS[question.id]
-                        const isCorrect = userAnswer === question.correctAnswer
+                        const isCorrect = userAnswer === question.correctIdx
                         const hasAnswer = userAnswer !== undefined
 
                         return (
@@ -128,7 +128,7 @@ export default function ResultPage() {
                                         </div>
                                         <div className="flex-1">
                                             <CardTitle className="text-base font-medium">
-                                                {question.text}
+                                                {question.content}
                                             </CardTitle>
                                             <div className="flex items-center gap-2 mt-2">
                                                 {isCorrect ? (
@@ -156,7 +156,7 @@ export default function ResultPage() {
                                     <div className="space-y-2">
                                         {question.options.map((option, optionIndex) => {
                                             const isUserAnswer = userAnswer === optionIndex
-                                            const isCorrectAnswer = question.correctAnswer === optionIndex
+                                            const isCorrectAnswer = question.correctIdx === optionIndex
 
                                             return (
                                                 <div

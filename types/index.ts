@@ -1,8 +1,8 @@
 export interface Question {
     id: string;
-    text: string;
+    content: string;
     options: string[];
-    correctAnswer: number; // 0-3 index
+    correctIdx: number; // 0-3 index
     explanation?: string; // Optional explanation for the correct answer
 }
 
@@ -11,6 +11,20 @@ export interface Exam {
     code: string;
     title: string;
     createdAt: string; // ISO String
-    status: "draft" | "published";
+    status: "DRAFT" | "PUBLISHED" | "ENDED";
     questions: Question[];
 }
+
+export interface Submission {
+    id: string;
+    examId: string;
+    userId: string;
+    answers: Record<string, number>; // Map of questionId to selected answer index
+    score?: number;
+    timeSpent?: number; // Time spent in seconds
+    submittedAt: string; // ISO String
+    createdAt: string; // ISO String
+}
+
+// Re-export Zod-inferred types for AI validation
+export type { GeneratedQuestion, AIResponse } from "@/lib/zod-schema";

@@ -40,8 +40,8 @@ export function QuestionEditor({
                 <div className="space-y-2">
                     <Label>Nội dung câu hỏi</Label>
                     <Textarea
-                        value={question.text}
-                        onChange={(e) => onUpdate(question.id, { text: e.target.value })}
+                        value={question.content}
+                        onChange={(e) => onUpdate(question.id, { content: e.target.value })}
                         placeholder="Nhập nội dung câu hỏi..."
                     />
                 </div>
@@ -52,9 +52,9 @@ export function QuestionEditor({
                             <input
                                 type="radio"
                                 name={`correct-${question.id}`}
-                                checked={question.correctAnswer === optionIndex}
+                                checked={question.correctIdx === optionIndex}
                                 onChange={() =>
-                                    onUpdate(question.id, { correctAnswer: optionIndex })
+                                    onUpdate(question.id, { correctIdx: optionIndex })
                                 }
                                 className="h-4 w-4"
                             />

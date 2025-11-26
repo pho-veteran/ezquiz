@@ -23,7 +23,7 @@ export default function Home() {
               <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-4">
                 <PenToolIcon className="w-6 h-6 text-primary" />
               </div>
-              <CardTitle className="text-2xl">Giáo Viên</CardTitle>
+              <CardTitle className="text-2xl">Tạo đề</CardTitle>
               <CardDescription>Tạo đề thi mới từ tài liệu hoặc văn bản</CardDescription>
             </CardHeader>
             <CardContent>
