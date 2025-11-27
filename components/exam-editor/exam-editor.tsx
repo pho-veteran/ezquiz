@@ -22,13 +22,14 @@ export interface ExamEditorSavePayload {
     durationMinutes?: number | null
 }
 
-interface ExamEditorProps {
+export interface ExamEditorProps {
     exam: Exam
     onSave: (payload: ExamEditorSavePayload) => Promise<Exam>
     onBack?: () => void
     primaryActionLabel?: string
     showHeader?: boolean
     variant?: ExamEditorVariant
+    onDurationChange?: (value: number | null) => void
 }
 
 const DEFAULT_OPTIONS = ["", "", "", ""]
@@ -64,6 +65,7 @@ export function ExamEditor({
     primaryActionLabel = "Lưu đề thi",
     showHeader = true,
     variant = "page",
+    onDurationChange,
 }: ExamEditorProps) {
     const [draftExam, setDraftExam] = useState<Exam>(() => normalizeExam(exam))
     const [selectedQuestionId, setSelectedQuestionId] = useState<string>(
@@ -309,12 +311,13 @@ export function ExamEditor({
                             status: value,
                         }))
                     }
-                    onDurationChange={(value) =>
+                    onDurationChange={(value) => {
                         setDraftExam((current) => ({
                             ...current,
                             durationMinutes: value,
                         }))
-                    }
+                        onDurationChange?.(value)
+                    }}
                     onBack={onBack}
                     onPrimaryAction={handleSaveExam}
                     isPrimaryActionLoading={isSaving}

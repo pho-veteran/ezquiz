@@ -40,6 +40,7 @@ export default function EditExamPage() {
     const handleSave = async (payload: ExamEditorSavePayload) => {
         const updatedExam = await updateExam({ code: examCode }, payload)
         setExam(updatedExam)
+        router.push("/dashboard")
         return updatedExam
     }
 

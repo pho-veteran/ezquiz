@@ -33,6 +33,7 @@ export default function CreateExamFlow() {
     const [numQuestions, setNumQuestions] = useState(10)
     const [examCode, setExamCode] = useState("")
     const [draftExam, setDraftExam] = useState<Exam | null>(null)
+    const [latestDurationMinutes, setLatestDurationMinutes] = useState<number | null>(null)
     const [progress, setProgress] = useState(0)
     const [isGenerating, setIsGenerating] = useState(false)
     const [isDraftLoading, setIsDraftLoading] = useState(false)
@@ -52,6 +53,7 @@ export default function CreateExamFlow() {
             setIsDraftLoading(true)
             const exam = await getExamByCode(code)
             setDraftExam(exam)
+            setLatestDurationMinutes(exam.durationMinutes ?? null)
         } catch (err) {
             console.error("Error loading draft exam:", err)
             toast.error(err instanceof Error ? err.message : "Không thể tải đề thi vừa tạo.")
@@ -133,6 +135,7 @@ export default function CreateExamFlow() {
         }
         const updated = await updateExam({ code: examCode }, payload)
         setDraftExam(updated)
+        setLatestDurationMinutes(updated.durationMinutes ?? null)
         return updated
     }
 
@@ -143,7 +146,7 @@ export default function CreateExamFlow() {
         }
 
         // Warn if duration is not set
-        if (!draftExam?.durationMinutes || draftExam.durationMinutes <= 0) {
+        if (!latestDurationMinutes || latestDurationMinutes <= 0) {
             const confirmed = window.confirm(
                 "Đề thi chưa có thời gian làm bài. Học sinh sẽ không thể làm bài nếu không có thời gian. Bạn có muốn tiếp tục xuất bản không?"
             )
@@ -225,12 +228,12 @@ export default function CreateExamFlow() {
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="numQuestions">Số lượng câu hỏi</Label>
+                            <Label htmlFor="numQuestions">Số lượng câu hỏi (tối đa 150)</Label>
                             <Input
                                 id="numQuestions"
                                 type="number"
                                 min="1"
-                                max="50"
+                                max="150"
                                 placeholder="10"
                                 value={numQuestions}
                                 onChange={(e) => setNumQuestions(parseInt(e.target.value) || 10)}
@@ -246,7 +249,7 @@ export default function CreateExamFlow() {
                                     type="file"
                                     id="file-upload"
                                     className="hidden"
-                                    accept=".pdf,.txt,.docx,.jpg,.jpeg,.png,.webp,.gif"
+                                    accept="application/pdf,audio/mpeg,audio/mp3,audio/wav,image/png,image/jpeg,image/webp,text/plain"
                                     onChange={handleFileChange}
                                 />
                                 <label htmlFor="file-upload" className="cursor-pointer">
@@ -265,7 +268,7 @@ export default function CreateExamFlow() {
                                                 Kéo thả file vào đây hoặc click để tải lên
                                             </p>
                                             <p className="text-xs text-muted-foreground mt-1">
-                                                (Hỗ trợ PDF, TXT, DOCX, JPG, PNG, WEBP, GIF)
+                                                (Hỗ trợ PDF, MP3/MPEG/WAV audio, PNG/JPEG/WEBP ảnh, TXT)
                                             </p>
                                         </>
                                     )}
@@ -407,6 +410,7 @@ export default function CreateExamFlow() {
                             onSave={handleDraftSave}
                             primaryActionLabel="Lưu bản nháp"
                             variant="embedded"
+                        onDurationChange={(value: number | null) => setLatestDurationMinutes(value ?? null)}
                         />
                     )}
 

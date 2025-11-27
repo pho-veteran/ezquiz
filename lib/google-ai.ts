@@ -23,14 +23,14 @@ export const SUPPORTED_MIME_TYPES = {
     // Documents
     "application/pdf": ".pdf",
     "text/plain": ".txt",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-        ".docx",
+    // Audio
+    "audio/mpeg": ".mp3",
+    "audio/mp3": ".mp3",
+    "audio/wav": ".wav",
     // Images
     "image/jpeg": ".jpg",
-    "image/jpg": ".jpg",
     "image/png": ".png",
     "image/webp": ".webp",
-    "image/gif": ".gif",
 };
 
 /**
@@ -56,7 +56,7 @@ export function validateFile(file: File): boolean {
     // Check MIME type
     if (!Object.keys(SUPPORTED_MIME_TYPES).includes(file.type)) {
         throw new Error(
-            `Unsupported file type: ${file.type}. Supported formats: PDF, TXT, DOCX, JPG, PNG, WEBP, GIF`
+            `Unsupported file type: ${file.type}. Supported formats: PDF, MP3/MPEG/WAV audio, PNG/JPEG/WEBP images, or plain text (TXT)`
         );
     }
 
