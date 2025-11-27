@@ -23,8 +23,8 @@ export default function ExamPage() {
                     <p className="text-muted-foreground">
                         Đang chuyển hướng...
                     </p>
-                </CardContent>
-            </Card>
+                            </CardContent>
+                        </Card>
         </div>
     )
 }

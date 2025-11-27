@@ -220,7 +220,7 @@ export async function PATCH(
             ) {
                 await tx.exam.update({
                     where: { id: existingExam.id },
-                    data: {
+            data: {
                         ...(trimmedTitle !== undefined && { title: trimmedTitle }),
                         ...(trimmedCode !== undefined && { code: trimmedCode }),
                         ...(normalizedStatus && { status: normalizedStatus }),
@@ -232,7 +232,7 @@ export async function PATCH(
                                       ? durationMinutes
                                       : null,
                         }),
-                    },
+            },
                 })
             }
 

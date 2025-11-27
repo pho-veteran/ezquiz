@@ -214,34 +214,34 @@ export default function ResultPage() {
                     {/* Left Column: Summary */}
                     <div className="lg:col-span-1 space-y-4">
                         <Card>
-                            <CardHeader>
+                    <CardHeader>
                                 <CardTitle className="text-xl text-center">
                                     Kết Quả Bài Thi
                                 </CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-6">
-                                <div className="text-center">
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                        <div className="text-center">
                                     <div
                                         className={`text-5xl font-bold ${colorClass} mb-2`}
                                     >
-                                        {correctCount}/{total}
-                                    </div>
+                                {correctCount}/{total}
+                            </div>
                                     <p className="text-muted-foreground font-medium">
                                         {message}
                                     </p>
-                                </div>
+                        </div>
 
                                 <Separator />
 
-                                <div className="space-y-2">
-                                    <div className="flex justify-between text-sm">
-                                        <span>Điểm số</span>
+                        <div className="space-y-2">
+                            <div className="flex justify-between text-sm">
+                                <span>Điểm số</span>
                                         <span className="font-bold">
                                             {percentage.toFixed(1)}%
                                         </span>
-                                    </div>
-                                    <Progress value={percentage} className="h-3" />
-                                </div>
+                            </div>
+                            <Progress value={percentage} className="h-3" />
+                        </div>
 
                                 <Separator />
 
@@ -362,7 +362,7 @@ export default function ResultPage() {
                                         <Home className="mr-2 h-4 w-4" />
                                         Về trang chủ
                                     </Button>
-                                </div>
+                            </div>
                             </CardContent>
                         </Card>
 
@@ -427,10 +427,10 @@ export default function ResultPage() {
                                         <span className="text-muted-foreground">
                                             Chưa trả lời
                                         </span>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
                     </div>
 
                     {/* Right Column: All Questions */}
@@ -439,9 +439,9 @@ export default function ResultPage() {
                             const userAnswer = answers[question.id]
                             const isCorrect =
                                 userAnswer === question.correctIdx
-                            const hasAnswer = userAnswer !== undefined
+                        const hasAnswer = userAnswer !== undefined
 
-                            return (
+                        return (
                                 <div
                                     key={question.id}
                                     ref={(el) => {
@@ -451,7 +451,7 @@ export default function ResultPage() {
                                 >
                                     <Card
                                         className={cn(
-                                            "border-2",
+                                "border-2",
                                             isCorrect
                                                 ? "border-green-500"
                                                 : hasAnswer
@@ -459,11 +459,11 @@ export default function ResultPage() {
                                                   : "border-gray-200"
                                         )}
                                     >
-                                        <CardHeader className="pb-3">
-                                            <div className="flex items-start gap-3">
+                                <CardHeader className="pb-3">
+                                    <div className="flex items-start gap-3">
                                                 <div
                                                     className={cn(
-                                                        "shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold",
+                                            "shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold",
                                                         isCorrect
                                                             ? "bg-green-500 text-white"
                                                             : hasAnswer
@@ -471,36 +471,36 @@ export default function ResultPage() {
                                                               : "bg-gray-200 text-gray-600"
                                                     )}
                                                 >
-                                                    {index + 1}
-                                                </div>
-                                                <div className="flex-1">
-                                                    <CardTitle className="text-base font-medium">
-                                                        {question.content}
-                                                    </CardTitle>
-                                                    <div className="flex items-center gap-2 mt-2">
-                                                        {isCorrect ? (
-                                                            <span className="text-sm text-green-600 flex items-center gap-1 font-medium">
-                                                                <CheckCircle2 className="h-4 w-4" />
-                                                                Chính xác
-                                                            </span>
-                                                        ) : hasAnswer ? (
-                                                            <span className="text-sm text-red-600 flex items-center gap-1 font-medium">
-                                                                <XCircle className="h-4 w-4" />
-                                                                Sai
-                                                            </span>
-                                                        ) : (
-                                                            <span className="text-sm text-gray-500 flex items-center gap-1 font-medium">
-                                                                <AlertCircle className="h-4 w-4" />
-                                                                Chưa trả lời
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                </div>
+                                            {index + 1}
+                                        </div>
+                                        <div className="flex-1">
+                                            <CardTitle className="text-base font-medium">
+                                                {question.content}
+                                            </CardTitle>
+                                            <div className="flex items-center gap-2 mt-2">
+                                                {isCorrect ? (
+                                                    <span className="text-sm text-green-600 flex items-center gap-1 font-medium">
+                                                        <CheckCircle2 className="h-4 w-4" />
+                                                        Chính xác
+                                                    </span>
+                                                ) : hasAnswer ? (
+                                                    <span className="text-sm text-red-600 flex items-center gap-1 font-medium">
+                                                        <XCircle className="h-4 w-4" />
+                                                        Sai
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-sm text-gray-500 flex items-center gap-1 font-medium">
+                                                        <AlertCircle className="h-4 w-4" />
+                                                        Chưa trả lời
+                                                    </span>
+                                                )}
                                             </div>
-                                        </CardHeader>
-                                        <CardContent className="space-y-3">
-                                            {/* Options */}
-                                            <div className="space-y-2">
+                                        </div>
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="space-y-3">
+                                    {/* Options */}
+                                    <div className="space-y-2">
                                                 {question.options.map(
                                                     (option, optionIndex) => {
                                                         const isUserAnswer =
@@ -510,11 +510,11 @@ export default function ResultPage() {
                                                             question.correctIdx ===
                                                             optionIndex
 
-                                                        return (
-                                                            <div
-                                                                key={optionIndex}
-                                                                className={cn(
-                                                                    "flex items-center gap-3 p-3 rounded-lg border-2 transition-all",
+                                            return (
+                                                <div
+                                                    key={optionIndex}
+                                                    className={cn(
+                                                        "flex items-center gap-3 p-3 rounded-lg border-2 transition-all",
                                                                     isCorrectAnswer &&
                                                                         "border-green-500 bg-green-50",
                                                                     isUserAnswer &&
@@ -523,11 +523,11 @@ export default function ResultPage() {
                                                                     !isCorrectAnswer &&
                                                                         !isUserAnswer &&
                                                                         "border-gray-200"
-                                                                )}
-                                                            >
+                                                    )}
+                                                >
                                                                 <div
                                                                     className={cn(
-                                                                        "shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center text-sm font-semibold",
+                                                        "shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center text-sm font-semibold",
                                                                         isCorrectAnswer &&
                                                                             "border-green-500 bg-green-500 text-white",
                                                                         isUserAnswer &&
@@ -542,8 +542,8 @@ export default function ResultPage() {
                                                                         65 +
                                                                             optionIndex
                                                                     )}
-                                                                </div>
-                                                                <div className="flex-1">
+                                                    </div>
+                                                    <div className="flex-1">
                                                                     <span
                                                                         className={cn(
                                                                             isCorrectAnswer &&
@@ -556,29 +556,29 @@ export default function ResultPage() {
                                                                         {
                                                                             option
                                                                         }
-                                                                    </span>
-                                                                </div>
-                                                                {isCorrectAnswer && (
-                                                                    <CheckCircle2 className="h-5 w-5 text-green-600" />
-                                                                )}
+                                                        </span>
+                                                    </div>
+                                                    {isCorrectAnswer && (
+                                                        <CheckCircle2 className="h-5 w-5 text-green-600" />
+                                                    )}
                                                                 {isUserAnswer &&
                                                                     !isCorrectAnswer && (
-                                                                        <XCircle className="h-5 w-5 text-red-600" />
-                                                                    )}
-                                                            </div>
-                                                        )
+                                                        <XCircle className="h-5 w-5 text-red-600" />
+                                                    )}
+                                                </div>
+                                            )
                                                     }
                                                 )}
-                                            </div>
+                                    </div>
 
-                                            {/* Explanation */}
-                                            {question.explanation && (
-                                                <>
-                                                    <Separator />
-                                                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                                                        <div className="flex items-start gap-2">
-                                                            <AlertCircle className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
-                                                            <div>
+                                    {/* Explanation */}
+                                    {question.explanation && (
+                                        <>
+                                            <Separator />
+                                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                                <div className="flex items-start gap-2">
+                                                    <AlertCircle className="h-5 w-5 text-blue-600 shrink-0 mt-0.5" />
+                                                    <div>
                                                                 <p className="font-semibold text-blue-900 mb-1">
                                                                     Giải thích:
                                                                 </p>
@@ -587,16 +587,16 @@ export default function ResultPage() {
                                                                         question.explanation
                                                                     }
                                                                 </p>
-                                                            </div>
-                                                        </div>
                                                     </div>
-                                                </>
-                                            )}
-                                        </CardContent>
-                                    </Card>
+                                                </div>
+                                            </div>
+                                        </>
+                                    )}
+                                </CardContent>
+                            </Card>
                                 </div>
-                            )
-                        })}
+                        )
+                    })}
                     </div>
                 </div>
             </div>

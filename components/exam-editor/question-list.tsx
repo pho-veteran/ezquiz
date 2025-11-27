@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { cn } from "@/lib/utils"
+import { isQuestionValidForSave } from "@/lib/question-validation"
 import type { Question } from "@/types"
 import { CheckCircle2, PlusIcon, TrashIcon } from "lucide-react"
 
@@ -14,10 +15,6 @@ interface QuestionListProps {
     onAddQuestion: () => void
     onDeleteQuestion: (questionId: string) => void
     sticky?: boolean
-}
-
-function isQuestionComplete(question: Question) {
-    return question.content.trim().length > 0 && question.options.every((option) => option.trim().length > 0)
 }
 
 export function QuestionList({
@@ -39,7 +36,7 @@ export function QuestionList({
                 <div className="max-h-[calc(100vh-300px)] overflow-y-auto space-y-2">
                     {questions.map((question, index) => {
                         const isSelected = selectedQuestionId === question.id
-                        const complete = isQuestionComplete(question)
+                        const complete = isQuestionValidForSave(question)
 
                         return (
                             <div

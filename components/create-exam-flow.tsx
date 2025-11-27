@@ -159,7 +159,7 @@ export default function CreateExamFlow() {
                 { status: "PUBLISHED" }
             )
             setDraftExam(updatedExam)
-            setCurrentStep(4)
+        setCurrentStep(4)
             toast.success("Đề thi đã được xuất bản.")
         } catch (err) {
             console.error("Error publishing exam:", err)
@@ -379,8 +379,8 @@ export default function CreateExamFlow() {
                                             </>
                                         ) : (
                                             <>
-                                                <Save className="mr-2 h-4 w-4" />
-                                                Xuất bản
+                                        <Save className="mr-2 h-4 w-4" />
+                                        Xuất bản
                                             </>
                                         )}
                                     </Button>

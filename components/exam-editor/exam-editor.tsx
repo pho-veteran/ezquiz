@@ -6,6 +6,8 @@ import { toast } from "sonner"
 import { ExamEditorHeader } from "@/components/exam-editor/exam-editor-header"
 import { QuestionList } from "@/components/exam-editor/question-list"
 import { QuestionPanel } from "@/components/exam-editor/question-panel"
+import { SaveConfirmationModal } from "@/components/exam-editor/save-confirmation-modal"
+import { isQuestionValidForSave } from "@/lib/question-validation"
 import type { Question } from "@/types"
 import type { Exam } from "@/types"
 import { GripVertical } from "lucide-react"
@@ -70,6 +72,10 @@ export function ExamEditor({
     const [leftWidth, setLeftWidth] = useState(25)
     const [isResizing, setIsResizing] = useState(false)
     const [isSaving, setIsSaving] = useState(false)
+    const [showConfirmationModal, setShowConfirmationModal] = useState(false)
+    const [incompleteQuestions, setIncompleteQuestions] = useState<
+        Array<{ question: Question; index: number }>
+    >([])
 
     useEffect(() => {
         const normalizedExam = normalizeExam(exam)
@@ -101,23 +107,35 @@ export function ExamEditor({
     }
 
     const handleDeleteQuestion = (questionId: string) => {
-        let nextSelectedId = selectedQuestionId
-
         setDraftExam((current) => {
             if (current.questions.length <= 1) {
-                toast.error("Đề thi phải có ít nhất 1 câu hỏi.")
-                return current
+                // If it's the only question, create a new empty one
+                const newQuestion = createEmptyQuestion()
+                return {
+                    ...current,
+                    questions: [newQuestion],
+                }
             }
 
             const questionIndex = current.questions.findIndex((question) => question.id === questionId)
             const filteredQuestions = current.questions.filter((question) => question.id !== questionId)
 
+            // Handle navigation when deleting the currently selected question
             if (selectedQuestionId === questionId) {
-                const fallbackIndex = Math.min(
-                    Math.max(questionIndex, 0),
-                    Math.max(filteredQuestions.length - 1, 0)
-                )
-                nextSelectedId = filteredQuestions[fallbackIndex]?.id || ""
+                let nextSelectedId: string
+
+                if (questionIndex < filteredQuestions.length) {
+                    // If there are questions after this one, navigate to the next
+                    nextSelectedId = filteredQuestions[questionIndex].id
+                } else if (questionIndex > 0) {
+                    // If it's the last question, navigate to the previous one
+                    nextSelectedId = filteredQuestions[questionIndex - 1].id
+                } else {
+                    // Fallback: select the first question
+                    nextSelectedId = filteredQuestions[0]?.id || ""
+                }
+
+                setSelectedQuestionId(nextSelectedId)
             }
 
             return {
@@ -125,8 +143,6 @@ export function ExamEditor({
                 questions: filteredQuestions,
             }
         })
-
-        setSelectedQuestionId((currentId) => (currentId === questionId ? nextSelectedId : currentId))
     }
 
     const handleAddQuestion = () => {
@@ -138,24 +154,14 @@ export function ExamEditor({
         setSelectedQuestionId(newQuestion.id)
     }
 
-    const handleSaveExam = async () => {
-        // Warn if trying to publish without duration
-        if (draftExam.status === "PUBLISHED" && (!draftExam.durationMinutes || draftExam.durationMinutes <= 0)) {
-            const confirmed = window.confirm(
-                "Đề thi chưa có thời gian làm bài. Học sinh sẽ không thể làm bài nếu không có thời gian. Bạn có muốn tiếp tục lưu với trạng thái PUBLISHED không?"
-            )
-            if (!confirmed) {
-                return
-            }
-        }
-
+    const performSave = async (questionsToSave: Question[]) => {
+        setIsSaving(true)
         try {
-            setIsSaving(true)
             const updatedExam = await onSave({
                 title: draftExam.title,
                 status: draftExam.status,
                 code: draftExam.code,
-                questions: draftExam.questions,
+                questions: questionsToSave,
                 durationMinutes: draftExam.durationMinutes,
             })
             const normalized = normalizeExam(updatedExam)
@@ -169,10 +175,100 @@ export function ExamEditor({
             toast.success("Đã lưu đề thi thành công.")
         } catch (error) {
             console.error(error)
-            toast.error(error instanceof Error ? error.message : "Không thể lưu đề thi.")
+            const errorMessage = error instanceof Error ? error.message : "Không thể lưu đề thi."
+
+            // Try to parse question validation errors from the API
+            const questionErrors = parseQuestionErrors(errorMessage)
+            if (questionErrors.length > 0) {
+                // Find incomplete questions based on error messages
+                const incomplete = draftExam.questions
+                    .map((q, idx) => ({ question: q, index: idx }))
+                    .filter(({ question }) => !isQuestionValidForSave(question))
+
+                if (incomplete.length > 0) {
+                    setIncompleteQuestions(incomplete)
+                    setShowConfirmationModal(true)
+                    return
+                }
+            }
+
+            // Handle other errors (code conflicts, network errors, etc.)
+            if (errorMessage.includes("code already exists") || errorMessage.includes("Exam code")) {
+                toast.error("Mã đề thi đã tồn tại. Vui lòng chọn mã khác.")
+            } else {
+                toast.error(errorMessage)
+            }
         } finally {
             setIsSaving(false)
         }
+    }
+
+    const parseQuestionErrors = (errorMessage: string): number[] => {
+        // Parse error messages like "Question #1 must include non-empty content."
+        const questionErrorRegex = /Question #(\d+)/g
+        const questionNumbers: number[] = []
+        let match
+
+        while ((match = questionErrorRegex.exec(errorMessage)) !== null) {
+            const questionNum = parseInt(match[1], 10)
+            if (!questionNumbers.includes(questionNum)) {
+                questionNumbers.push(questionNum)
+            }
+        }
+
+        return questionNumbers
+    }
+
+    const handleSaveExam = async () => {
+        // Warn if trying to publish without duration
+        if (draftExam.status === "PUBLISHED" && (!draftExam.durationMinutes || draftExam.durationMinutes <= 0)) {
+            const confirmed = window.confirm(
+                "Đề thi chưa có thời gian làm bài. Học sinh sẽ không thể làm bài nếu không có thời gian. Bạn có muốn tiếp tục lưu với trạng thái PUBLISHED không?"
+            )
+            if (!confirmed) {
+                return
+            }
+        }
+
+        // Check for incomplete questions before saving
+        const incomplete = draftExam.questions
+            .map((q, idx) => ({ question: q, index: idx }))
+            .filter(({ question }) => !isQuestionValidForSave(question))
+
+        if (incomplete.length > 0) {
+            setIncompleteQuestions(incomplete)
+            setShowConfirmationModal(true)
+            return
+        }
+
+        // All questions are valid, proceed with save
+        await performSave(draftExam.questions)
+    }
+
+    const handleConfirmSave = async () => {
+        setShowConfirmationModal(false)
+
+        // Filter out incomplete questions
+        const validQuestions = draftExam.questions.filter(isQuestionValidForSave)
+
+        if (validQuestions.length === 0) {
+            toast.error("Không có câu hỏi hợp lệ để lưu. Vui lòng thêm ít nhất một câu hỏi hoàn chỉnh.")
+            return
+        }
+
+        // Update draft exam to remove invalid questions
+        setDraftExam((current) => ({
+            ...current,
+            questions: validQuestions,
+        }))
+
+        // Perform the save with filtered questions
+        await performSave(validQuestions)
+    }
+
+    const handleCancelSave = () => {
+        setShowConfirmationModal(false)
+        setIncompleteQuestions([])
     }
 
     const handleMouseDown = () => setIsResizing(true)
@@ -275,6 +371,14 @@ export function ExamEditor({
                     />
                 </div>
             </div>
+
+            {showConfirmationModal && (
+                <SaveConfirmationModal
+                    incompleteQuestions={incompleteQuestions}
+                    onConfirm={handleConfirmSave}
+                    onCancel={handleCancelSave}
+                />
+            )}
         </div>
     )
 }

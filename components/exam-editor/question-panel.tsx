@@ -161,7 +161,7 @@ export function QuestionPanel({
             </Card>
 
             <Card className={cn(stickyNavigation ? "sticky bottom-4 shadow-lg" : "shadow-sm")}>
-                <CardContent className="py-2 px-4">
+                <div className="p-2 px-4">
                     <div className="flex justify-between items-center">
                         <Button
                             variant="outline"
@@ -183,7 +183,7 @@ export function QuestionPanel({
                             <ChevronLeft className="ml-2 h-4 w-4 rotate-180" />
                         </Button>
                     </div>
-                </CardContent>
+                </div>
             </Card>
         </div>
     )
