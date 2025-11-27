@@ -1,26 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
+import { SchemaType, type Schema } from "@google/generative-ai";
 import { uploadFileToGemini, extractTextFromFile } from "@/lib/google-ai";
-import { AIResponseSchema } from "@/lib/zod-schema";
+import { AIResponseSchema, type GeneratedQuestion } from "@/lib/zod-schema";
 import { ensureDbUser } from "@/lib/ensure-db-user";
 
-/**
- * Generate a unique 8-character exam code
- * Format: XXXX-XXXX (e.g., EXAM-1234)
- */
-function generateExamCode(): string {
-    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    const firstPart = Array.from(
-        { length: 4 },
-        () => chars[Math.floor(Math.random() * chars.length)]
-    ).join("");
-    const secondPart = Array.from(
-        { length: 4 },
-        () => chars[Math.floor(Math.random() * chars.length)]
-    ).join("");
-    return `${firstPart}-${secondPart}`;
-}
+const CHUNK_SIZE = 10;
+const MAX_QUESTIONS = 150;
+const PREVIOUS_SUMMARY_LIMIT = 5;
+
+type DocumentSource =
+    | { type: "text"; content: string }
+    | { type: "file"; uri: string; mimeType: string };
 
 /**
  * POST /api/generate-exam
@@ -58,8 +50,12 @@ export async function POST(request: NextRequest) {
         const formData = await request.formData();
         const file = formData.get("file") as File;
         const title = formData.get("title") as string;
-        const numQuestions =
+        const rawNumQuestions =
             parseInt(formData.get("numQuestions") as string) || 10;
+        const numQuestions = Math.min(
+            Math.max(rawNumQuestions, 1),
+            MAX_QUESTIONS
+        );
 
         // Validate required fields
         if (!file) {
@@ -79,136 +75,123 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        if (numQuestions < 1 || numQuestions > 50) {
+        if (rawNumQuestions < 1 || rawNumQuestions > MAX_QUESTIONS) {
             return NextResponse.json(
                 {
                     success: false,
-                    error: "Number of questions must be between 1 and 50.",
+                    error: `Number of questions must be between 1 and ${MAX_QUESTIONS}.`,
                 },
                 { status: 400 }
             );
         }
 
         // 3. Upload file to Gemini or extract text
-        let fileUri: string | undefined;
-        let fileMimeType: string;
-        let textContent: string | undefined;
+        let documentSource: DocumentSource;
 
         if (file.type === "text/plain") {
-            // For text files, extract content directly
-            textContent = await extractTextFromFile(file);
-            fileMimeType = file.type;
+            const textContent = await extractTextFromFile(file);
+            documentSource = { type: "text", content: textContent };
         } else {
-            // For other files (PDF, DOCX, Images), upload to Gemini
             const uploadResult = await uploadFileToGemini(file);
-            fileUri = uploadResult.uri;
-            fileMimeType = uploadResult.mimeType;
+            documentSource = {
+                type: "file",
+                uri: uploadResult.uri,
+                mimeType: uploadResult.mimeType,
+            };
         }
 
-        // 4. Generate questions using AI
-        // Initialize model with JSON response configuration
+        // 4. Generate questions using AI (structured output + chunking)
         const { genAI } = await import("@/lib/google-ai");
         const model = genAI.getGenerativeModel({
             model: "gemini-2.0-flash",
-            generationConfig: {
-                responseMimeType: "application/json",
-            },
         });
 
-        // Construct the prompt for AI
-        const prompt = `You are an expert exam creator and instructional designer. Your task is to analyze the provided document and generate ${numQuestions} high-quality multiple choice questions (MCQ).
-
-IMPORTANT: Use the same language as the source document. If the document is in Vietnamese, generate questions in Vietnamese. If it's in English, use English. Match the language naturally.
-
-Guidelines for creating excellent MCQs:
-
-1. Content Coverage: Focus on the main concepts, key ideas, and important information from the document. Avoid trivial details.
-
-2. Question Quality:
-   - Questions should test understanding, not just memorization
-   - Be clear, concise, and unambiguous
-   - Avoid negative phrasing when possible
-
-3. Answer Options:
-   - Provide exactly 4 options (A, B, C, D)
-   - Create plausible distractors (wrong answers that seem reasonable)
-   - Distractors should be related to the topic and have similar length/complexity
-   - NEVER use options like "All of the above" or "None of the above"
-   - Avoid patterns in correct answer placement
-
-4. Explanations:
-   - Provide a brief, clear explanation for why the correct answer is right
-   - Reference the document content when possible
-   - Help learners understand the concept
-
-Return your response as a JSON array following this exact structure:
-[
-  {
-    "content": "The question text here?",
-    "options": ["Option A text", "Option B text", "Option C text", "Option D text"],
-    "correctIdx": 0,
-    "explanation": "Explanation of why this answer is correct"
-  }
-]
-
-Generate ${numQuestions} questions now.`;
-
-        let response;
-
-        if (textContent) {
-            // For text content, send it directly in the prompt
-            response = await model.generateContent([
-                {
-                    text: `${prompt}\n\nDocument Content:\n${textContent}`,
-                },
-            ]);
-        } else if (fileUri) {
-            // For uploaded files, reference the file URI
-            response = await model.generateContent([
-                {
-                    fileData: {
-                        mimeType: fileMimeType,
-                        fileUri: fileUri,
+        const questionResponseSchema: Schema = {
+            type: SchemaType.ARRAY,
+            items: {
+                type: SchemaType.OBJECT,
+                properties: {
+                    content: { type: SchemaType.STRING },
+                    options: {
+                        type: SchemaType.ARRAY,
+                        items: { type: SchemaType.STRING },
+                        minItems: 4,
+                        maxItems: 4,
+                    },
+                    correctIdx: { type: SchemaType.INTEGER },
+                    explanation: { type: SchemaType.STRING },
+                    difficulty: {
+                        type: SchemaType.STRING,
                     },
                 },
-                { text: prompt },
-            ]);
-        } else {
-            throw new Error("No file content available for processing");
+                required: ["content", "options", "correctIdx", "explanation"],
+            },
+        };
+
+        const aggregatedQuestions: GeneratedQuestion[] = [];
+        const totalChunks = Math.ceil(numQuestions / CHUNK_SIZE);
+
+        for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+            const remaining = numQuestions - aggregatedQuestions.length;
+            const questionsThisChunk = Math.min(CHUNK_SIZE, remaining);
+            const previousSummary = buildPreviousSummary(aggregatedQuestions);
+            const chunkPrompt = buildChunkPrompt(questionsThisChunk, previousSummary);
+            const contents = buildContents(documentSource, chunkPrompt);
+
+            let response;
+            try {
+                response = await model.generateContent({
+                    contents,
+                    generationConfig: {
+                        responseMimeType: "application/json",
+                        responseSchema: questionResponseSchema,
+                    },
+                });
+            } catch (error) {
+                throw new Error(
+                    `Failed to generate questions for chunk ${chunkIndex + 1}: ${
+                        error instanceof Error ? error.message : "Unknown error"
+                    }`
+                );
+            }
+
+            const responseText = response.response.text();
+
+            if (!responseText) {
+                throw new Error(
+                    `Gemini returned an empty response for chunk ${chunkIndex + 1}.`
+                );
+            }
+
+            let parsedChunk;
+            try {
+                parsedChunk = AIResponseSchema.parse(JSON.parse(responseText));
+            } catch (error) {
+                console.error(
+                    `Failed to validate Gemini output for chunk ${chunkIndex + 1}:`,
+                    error
+                );
+                throw new Error(
+                    `Gemini returned malformed data for chunk ${
+                        chunkIndex + 1
+                    }. Please try again.`
+                );
+            }
+
+            aggregatedQuestions.push(
+                ...parsedChunk.slice(0, questionsThisChunk)
+            );
         }
 
-        const responseText = response.response.text();
-
-        if (!responseText) {
-            throw new Error("AI generated empty response");
-        }
-
-        // 5. Parse and validate AI response
-        let rawData;
-        try {
-            rawData = JSON.parse(responseText);
-        } catch {
-            console.error("Failed to parse AI response as JSON:", responseText);
+        if (aggregatedQuestions.length < numQuestions) {
             throw new Error(
-                "AI returned invalid JSON format. Please try again."
+                "AI returned fewer questions than requested. Please try again."
             );
         }
 
-        const validationResult = AIResponseSchema.safeParse(rawData);
+        const questions = aggregatedQuestions.slice(0, numQuestions);
 
-        if (!validationResult.success) {
-            console.error(
-                "AI output validation failed:",
-                validationResult.error
-            );
-            throw new Error(
-                "AI generated questions don't match expected format. Please try again."
-            );
-        }
-
-        const questions = validationResult.data;
-
-        // 6. Save to database
+        // 5. Save to database
         // Generate unique exam code
         let examCode = generateExamCode();
         let codeExists = await prisma.exam.findUnique({
@@ -248,7 +231,7 @@ Generate ${numQuestions} questions now.`;
             `Successfully created exam ${exam.code} with ${exam.questions.length} questions`
         );
 
-        // 7. Return success response
+        // 6. Return success response
         return NextResponse.json({
             success: true,
             examId: exam.id,
@@ -272,4 +255,94 @@ Generate ${numQuestions} questions now.`;
             { status: 500 }
         );
     }
+}
+
+/**
+ * Generate a unique 8-character exam code
+ * Format: XXXX-XXXX (e.g., EXAM-1234)
+ */
+function generateExamCode(): string {
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    const firstPart = Array.from(
+        { length: 4 },
+        () => chars[Math.floor(Math.random() * chars.length)]
+    ).join("");
+    const secondPart = Array.from(
+        { length: 4 },
+        () => chars[Math.floor(Math.random() * chars.length)]
+    ).join("");
+    return `${firstPart}-${secondPart}`;
+}
+
+function buildPreviousSummary(questions: GeneratedQuestion[]): string {
+    if (questions.length === 0) {
+        return "No questions generated yet.";
+    }
+
+    return questions
+        .slice(-PREVIOUS_SUMMARY_LIMIT)
+        .map((question, index) => {
+            const cleanContent = question.content.replace(/\s+/g, " ").trim();
+            const truncated =
+                cleanContent.length > 160
+                    ? `${cleanContent.slice(0, 157)}...`
+                    : cleanContent;
+            return `${index + 1}. ${truncated}`;
+        })
+        .join("\n");
+}
+
+function buildChunkPrompt(
+    questionsNeeded: number,
+    previousSummary: string
+): string {
+    return `You are an expert exam creator. Generate ${questionsNeeded} new, non-overlapping multiple choice questions (MCQs) about the provided document.
+
+Key requirements:
+- Match the document's language exactly (e.g., Vietnamese document => Vietnamese questions).
+- Avoid repeating topics already covered:
+${previousSummary}
+- Focus on high-value concepts and deeper understanding.
+- Each question must have exactly 4 plausible options and one correct answer.
+- Provide a brief explanation that references the document's ideas.
+- Optionally label difficulty as Easy, Medium, or Hard when it is apparent.
+
+Respond ONLY via the structured schema; do not include any prose outside of the schema.`;
+}
+
+function buildContents(source: DocumentSource, prompt: string) {
+    if (source.type === "text") {
+        const truncatedContent =
+            source.content.length > 20000
+                ? `${source.content.slice(0, 20000)}\n...[truncated]`
+                : source.content;
+
+        return [
+            {
+                role: "user",
+                parts: [
+                    {
+                        text: `${prompt}\n\nDocument Content:\n${truncatedContent}`,
+                    },
+                ],
+            },
+        ];
+    }
+
+    return [
+        {
+            role: "user",
+            parts: [
+                {
+                    fileData: {
+                        mimeType: source.mimeType,
+                        fileUri: source.uri,
+                    },
+                },
+                {
+                    text: prompt,
+                },
+            ],
+        },
+    ];
 }
