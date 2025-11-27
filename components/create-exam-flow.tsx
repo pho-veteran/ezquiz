@@ -24,12 +24,16 @@ const STEPS = [
     { number: 4, title: "Hoàn thành", description: "Xuất bản đề thi" },
 ]
 
+type InputMode = "text" | "file"
+
 export default function CreateExamFlow() {
     const router = useRouter()
     const [currentStep, setCurrentStep] = useState<Step>(1)
+    const [inputMode, setInputMode] = useState<InputMode>("text")
     const [content, setContent] = useState("")
     const [examTitle, setExamTitle] = useState("")
     const [file, setFile] = useState<File | null>(null)
+    const [customInstruction, setCustomInstruction] = useState("")
     const [numQuestions, setNumQuestions] = useState(10)
     const [examCode, setExamCode] = useState("")
     const [draftExam, setDraftExam] = useState<Exam | null>(null)
@@ -44,7 +48,16 @@ export default function CreateExamFlow() {
         const selectedFile = e.target.files?.[0]
         if (selectedFile) {
             setFile(selectedFile)
-            setContent("") // Clear text content when file is selected
+        }
+    }
+
+    const handleModeChange = (mode: InputMode) => {
+        setInputMode(mode)
+        if (mode === "text") {
+            setFile(null)
+            setCustomInstruction("")
+        } else {
+            setContent("")
         }
     }
 
@@ -63,9 +76,22 @@ export default function CreateExamFlow() {
     }
 
     const handleGenerate = async () => {
-        if ((!content.trim() && !file) || !examTitle.trim()) {
-            toast.error("Please provide both a title and document content")
+        // Validate based on mode
+        if (!examTitle.trim()) {
+            toast.error("Vui lòng nhập tên đề thi")
             return
+        }
+
+        if (inputMode === "text") {
+            if (!content.trim()) {
+                toast.error("Vui lòng nhập nội dung/topic để tạo đề thi")
+                return
+            }
+        } else {
+            if (!file) {
+                toast.error("Vui lòng tải lên file")
+                return
+            }
         }
 
         setIsGenerating(true)
@@ -85,8 +111,11 @@ export default function CreateExamFlow() {
             // Prepare form data
             const formData = new FormData()
             
-            if (file) {
-                formData.append("file", file)
+            if (inputMode === "file") {
+                formData.append("file", file!)
+                if (customInstruction.trim()) {
+                    formData.append("customInstruction", customInstruction.trim())
+                }
             } else {
                 // Create a text file from content
                 const textBlob = new Blob([content], { type: "text/plain" })
@@ -242,53 +271,114 @@ export default function CreateExamFlow() {
 
                         <Separator />
 
-                        <div className="space-y-2">
-                            <Label>Tải lên tài liệu</Label>
-                            <div className="border-2 border-dashed rounded-lg p-8 text-center hover:bg-gray-50 transition-colors">
-                                <input
-                                    type="file"
-                                    id="file-upload"
-                                    className="hidden"
-                                    accept="application/pdf,audio/mpeg,audio/mp3,audio/wav,image/png,image/jpeg,image/webp,text/plain"
-                                    onChange={handleFileChange}
-                                />
-                                <label htmlFor="file-upload" className="cursor-pointer">
-                                    {file ? (
-                                        <div className="flex flex-col items-center">
-                                            <FileText className="h-12 w-12 text-green-600 mb-2" />
-                                            <p className="text-sm font-medium text-gray-900">{file.name}</p>
-                                            <p className="text-xs text-muted-foreground mt-1">
-                                                {(file.size / 1024 / 1024).toFixed(2)} MB
-                                            </p>
-                                        </div>
-                                    ) : (
-                                        <>
-                                            <UploadCloud className="mx-auto h-12 w-12 text-muted-foreground" />
-                                            <p className="mt-2 text-sm text-muted-foreground">
-                                                Kéo thả file vào đây hoặc click để tải lên
-                                            </p>
-                                            <p className="text-xs text-muted-foreground mt-1">
-                                                (Hỗ trợ PDF, MP3/MPEG/WAV audio, PNG/JPEG/WEBP ảnh, TXT)
-                                            </p>
-                                        </>
-                                    )}
-                                </label>
+                        {/* Mode Selection */}
+                        <div className="space-y-4">
+                            <div className="flex gap-2 border rounded-lg p-1 bg-muted/50">
+                                <button
+                                    type="button"
+                                    onClick={() => handleModeChange("text")}
+                                    className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                                        inputMode === "text"
+                                            ? "bg-background text-foreground shadow-sm"
+                                            : "text-muted-foreground hover:text-foreground"
+                                    }`}
+                                >
+                                    Nhập nội dung
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => handleModeChange("file")}
+                                    className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                                        inputMode === "file"
+                                            ? "bg-background text-foreground shadow-sm"
+                                            : "text-muted-foreground hover:text-foreground"
+                                    }`}
+                                >
+                                    Tải lên file
+                                </button>
                             </div>
-                        </div>
 
-                        <div className="space-y-2">
-                            <Label>Hoặc dán nội dung văn bản</Label>
-                            <Textarea
-                                placeholder="Dán nội dung bài học vào đây..."
-                                className="min-h-[200px]"
-                                value={content}
-                                onChange={(e) => setContent(e.target.value)}
-                                disabled={!!file}
-                            />
-                            {file && (
-                                <p className="text-xs text-muted-foreground">
-                                    Xóa file đã chọn để nhập văn bản
-                                </p>
+                            {/* Text Mode */}
+                            {inputMode === "text" && (
+                                <div className="space-y-2">
+                                    <Label htmlFor="content">Nội dung/Topic để tạo đề thi</Label>
+                                    <Textarea
+                                        id="content"
+                                        placeholder="Nhập nội dung bài học, chủ đề, hoặc mô tả kiến thức cần tạo câu hỏi..."
+                                        className="min-h-[200px]"
+                                        value={content}
+                                        onChange={(e) => setContent(e.target.value)}
+                                    />
+                                    <p className="text-xs text-muted-foreground">
+                                        AI sẽ tạo câu hỏi dựa trên nội dung bạn cung cấp
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* File Mode */}
+                            {inputMode === "file" && (
+                                <>
+                                    <div className="space-y-2">
+                                        <Label>Tải lên tài liệu</Label>
+                                        <div className="border-2 border-dashed rounded-lg p-8 text-center hover:bg-gray-50 transition-colors">
+                                            <input
+                                                type="file"
+                                                id="file-upload"
+                                                className="hidden"
+                                                accept="application/pdf,audio/mpeg,audio/mp3,audio/wav,image/png,image/jpeg,image/webp,text/plain"
+                                                onChange={handleFileChange}
+                                            />
+                                            <label htmlFor="file-upload" className="cursor-pointer">
+                                                {file ? (
+                                                    <div className="flex flex-col items-center">
+                                                        <FileText className="h-12 w-12 text-green-600 mb-2" />
+                                                        <p className="text-sm font-medium text-gray-900">{file.name}</p>
+                                                        <p className="text-xs text-muted-foreground mt-1">
+                                                            {(file.size / 1024 / 1024).toFixed(2)} MB
+                                                        </p>
+                                                        <Button
+                                                            type="button"
+                                                            variant="outline"
+                                                            size="sm"
+                                                            className="mt-2"
+                                                            onClick={(e) => {
+                                                                e.preventDefault()
+                                                                e.stopPropagation()
+                                                                setFile(null)
+                                                            }}
+                                                        >
+                                                            Xóa file
+                                                        </Button>
+                                                    </div>
+                                                ) : (
+                                                    <>
+                                                        <UploadCloud className="mx-auto h-12 w-12 text-muted-foreground" />
+                                                        <p className="mt-2 text-sm text-muted-foreground">
+                                                            Kéo thả file vào đây hoặc click để tải lên
+                                                        </p>
+                                                        <p className="text-xs text-muted-foreground mt-1">
+                                                            (Hỗ trợ PDF, MP3/MPEG/WAV audio, PNG/JPEG/WEBP ảnh, TXT)
+                                                        </p>
+                                                    </>
+                                                )}
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label htmlFor="customInstruction">Hướng dẫn tạo đề thi (tùy chọn)</Label>
+                                        <Textarea
+                                            id="customInstruction"
+                                            placeholder="Ví dụ: Tập trung vào phần 3-5, tạo câu hỏi ở mức độ khó, nhấn mạnh các công thức..."
+                                            className="min-h-[120px]"
+                                            value={customInstruction}
+                                            onChange={(e) => setCustomInstruction(e.target.value)}
+                                        />
+                                        <p className="text-xs text-muted-foreground">
+                                            Cung cấp hướng dẫn cụ thể để AI tạo câu hỏi theo yêu cầu của bạn
+                                        </p>
+                                    </div>
+                                </>
                             )}
                         </div>
 
@@ -302,18 +392,15 @@ export default function CreateExamFlow() {
                             </div>
                         )}
                     </CardContent>
-                    <CardFooter className="flex justify-end gap-2">
-                        {file && (
-                            <Button 
-                                variant="outline" 
-                                onClick={() => setFile(null)}
-                            >
-                                Xóa file
-                            </Button>
-                        )}
+                    <CardFooter className="flex justify-end">
                         <Button 
                             onClick={handleGenerate} 
-                            disabled={(!content.trim() && !file) || !examTitle.trim() || isGenerating}
+                            disabled={
+                                !examTitle.trim() || 
+                                isGenerating ||
+                                (inputMode === "text" && !content.trim()) ||
+                                (inputMode === "file" && !file)
+                            }
                         >
                             {isGenerating ? (
                                 <>
