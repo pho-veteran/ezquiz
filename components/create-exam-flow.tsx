@@ -14,6 +14,8 @@ import { Loader2, UploadCloud, CheckCircle2, Save, ChevronRight, ChevronLeft, Fi
 import { Separator } from "@/components/ui/separator"
 import { toast } from "sonner"
 import { getExamByCode, updateExam } from "@/lib/exam-service"
+import { ExamOptionsModal, type ExamOptions } from "@/components/exam-options-modal"
+import { Settings } from "lucide-react"
 
 type Step = 1 | 2 | 3 | 4
 
@@ -43,6 +45,8 @@ export default function CreateExamFlow() {
     const [isDraftLoading, setIsDraftLoading] = useState(false)
     const [isPublishing, setIsPublishing] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const [examOptions, setExamOptions] = useState<ExamOptions | null>(null)
+    const [isOptionsModalOpen, setIsOptionsModalOpen] = useState(false)
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const selectedFile = e.target.files?.[0]
@@ -125,6 +129,22 @@ export default function CreateExamFlow() {
             
             formData.append("title", examTitle.trim())
             formData.append("numQuestions", numQuestions.toString())
+
+            // Add exam options if provided
+            if (examOptions) {
+                if (examOptions.practicalRatio !== null && examOptions.practicalRatio !== undefined) {
+                    formData.append("practicalRatio", examOptions.practicalRatio.toString())
+                }
+                if (examOptions.difficultyDistribution) {
+                    formData.append("difficultyDistribution", JSON.stringify(examOptions.difficultyDistribution))
+                }
+                if (examOptions.language && examOptions.language !== "auto") {
+                    formData.append("language", examOptions.language)
+                }
+                if (examOptions.explanationStyle && examOptions.explanationStyle !== "auto") {
+                    formData.append("explanationStyle", examOptions.explanationStyle)
+                }
+            }
 
             // Call API endpoint
             const response = await fetch("/api/generate-exam", {
@@ -392,7 +412,15 @@ export default function CreateExamFlow() {
                             </div>
                         )}
                     </CardContent>
-                    <CardFooter className="flex justify-end">
+                    <CardFooter className="flex justify-between">
+                        <Button
+                            variant="outline"
+                            onClick={() => setIsOptionsModalOpen(true)}
+                            type="button"
+                        >
+                            <Settings className="mr-2 h-4 w-4" />
+                            Tùy chọn nâng cao
+                        </Button>
                         <Button 
                             onClick={handleGenerate} 
                             disabled={
@@ -550,6 +578,18 @@ export default function CreateExamFlow() {
                     </CardContent>
                 </Card>
             )}
+
+            {/* Options Modal */}
+            <ExamOptionsModal
+                isOpen={isOptionsModalOpen}
+                onClose={() => setIsOptionsModalOpen(false)}
+                onSave={(options) => {
+                    setExamOptions(options)
+                    setIsOptionsModalOpen(false)
+                    toast.success("Đã lưu tùy chọn")
+                }}
+                initialOptions={examOptions ?? undefined}
+            />
         </div>
     )
 }

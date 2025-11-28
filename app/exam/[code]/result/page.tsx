@@ -18,6 +18,7 @@ import { Separator } from "@/components/ui/separator"
 import { cn } from "@/lib/utils"
 import { apiClient } from "@/lib/api-client"
 import { toast } from "sonner"
+import { TipTapEditor } from "@/components/tiptap-editor"
 
 interface Question {
     id: string
@@ -474,9 +475,15 @@ export default function ResultPage() {
                                             {index + 1}
                                         </div>
                                         <div className="flex-1">
-                                            <CardTitle className="text-base font-medium">
-                                                {question.content}
-                                            </CardTitle>
+                                            <div className="text-base font-medium">
+                                                <TipTapEditor
+                                                    value={question.content}
+                                                    editable={false}
+                                                    minHeight="0px"
+                                                    showBorder={false}
+                                                    className="space-y-0"
+                                                />
+                                            </div>
                                             <div className="flex items-center gap-2 mt-2">
                                                 {isCorrect ? (
                                                     <span className="text-sm text-green-600 flex items-center gap-1 font-medium">
@@ -544,19 +551,23 @@ export default function ResultPage() {
                                                                     )}
                                                     </div>
                                                     <div className="flex-1">
-                                                                    <span
-                                                                        className={cn(
-                                                                            isCorrectAnswer &&
-                                                                                "font-semibold text-green-700",
-                                                                            isUserAnswer &&
-                                                                                !isCorrectAnswer &&
-                                                                                "font-semibold text-red-700"
-                                                                        )}
-                                                                    >
-                                                                        {
-                                                                            option
-                                                                        }
-                                                        </span>
+                                                        <div
+                                                            className={cn(
+                                                                isCorrectAnswer &&
+                                                                    "font-semibold text-green-700",
+                                                                isUserAnswer &&
+                                                                    !isCorrectAnswer &&
+                                                                    "font-semibold text-red-700"
+                                                            )}
+                                                        >
+                                                            <TipTapEditor
+                                                                value={option}
+                                                                editable={false}
+                                                                minHeight="0px"
+                                                                showBorder={false}
+                                                                className="space-y-0"
+                                                            />
+                                                        </div>
                                                     </div>
                                                     {isCorrectAnswer && (
                                                         <CheckCircle2 className="h-5 w-5 text-green-600" />
@@ -582,11 +593,15 @@ export default function ResultPage() {
                                                                 <p className="font-semibold text-blue-900 mb-1">
                                                                     Giải thích:
                                                                 </p>
-                                                                <p className="text-sm text-blue-800">
-                                                                    {
-                                                                        question.explanation
-                                                                    }
-                                                                </p>
+                                                                <div className="text-sm text-blue-800">
+                                                                    <TipTapEditor
+                                                                        value={question.explanation || ""}
+                                                                        editable={false}
+                                                                        minHeight="0px"
+                                                                        showBorder={false}
+                                                                        className="space-y-0"
+                                                                    />
+                                                                </div>
                                                     </div>
                                                 </div>
                                             </div>

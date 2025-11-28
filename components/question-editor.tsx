@@ -1,10 +1,9 @@
 import { Question } from "@/types"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
 import { TrashIcon } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { TipTapEditor } from "@/components/tiptap-editor"
 
 interface QuestionEditorProps {
     question: Question
@@ -39,10 +38,15 @@ export function QuestionEditor({
             <CardContent className="space-y-4">
                 <div className="space-y-2">
                     <Label>Nội dung câu hỏi</Label>
-                    <Textarea
+                    <p className="text-sm text-muted-foreground">
+                        Hỗ trợ Markdown (ví dụ: **đậm**, *nghiêng*) và LaTeX (ví dụ: $$\\int_0^1 x^2 dx$$).
+                    </p>
+                    <TipTapEditor
                         value={question.content}
-                        onChange={(e) => onUpdate(question.id, { content: e.target.value })}
+                        onChange={(value) => onUpdate(question.id, { content: value })}
                         placeholder="Nhập nội dung câu hỏi..."
+                        minHeight="120px"
+                        editable
                     />
                 </div>
                 <div className="space-y-3">
@@ -58,15 +62,22 @@ export function QuestionEditor({
                                 }
                                 className="h-4 w-4"
                             />
-                            <Input
-                                value={option}
-                                onChange={(e) => {
-                                    const newOptions = [...question.options]
-                                    newOptions[optionIndex] = e.target.value
-                                    onUpdate(question.id, { options: newOptions })
-                                }}
-                                placeholder={`Đáp án ${optionIndex + 1}`}
-                            />
+                            <div className="flex-1">
+                                <p className="text-xs text-muted-foreground mb-1">
+                                    Hỗ trợ Markdown và LaTeX.
+                                </p>
+                                <TipTapEditor
+                                    value={option}
+                                    onChange={(value) => {
+                                        const newOptions = [...question.options]
+                                        newOptions[optionIndex] = value
+                                        onUpdate(question.id, { options: newOptions })
+                                    }}
+                                    placeholder={`Đáp án ${optionIndex + 1}`}
+                                    minHeight="60px"
+                                    editable
+                                />
+                            </div>
                         </div>
                     ))}
                 </div>

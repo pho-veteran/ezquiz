@@ -14,6 +14,17 @@ type DocumentSource =
     | { type: "text"; content: string }
     | { type: "file"; uri: string; mimeType: string };
 
+interface ExamOptions {
+    practicalRatio?: number | null; // 0-100, null = auto
+    difficultyDistribution?: {
+        easy: number;
+        medium: number;
+        hard: number;
+    } | null;
+    language?: "auto" | "vi" | "en";
+    explanationStyle?: "auto" | "detailed" | "concise";
+}
+
 /**
  * POST /api/generate-exam
  * Generate exam questions from uploaded document using AI
@@ -58,6 +69,38 @@ export async function POST(request: NextRequest) {
             MAX_QUESTIONS
         );
         const customInstruction = (formData.get("customInstruction") as string) || undefined;
+
+        // Parse exam options
+        const examOptions: ExamOptions = {};
+        const practicalRatioStr = formData.get("practicalRatio") as string;
+        if (practicalRatioStr) {
+            const ratio = parseInt(practicalRatioStr, 10);
+            if (!isNaN(ratio) && ratio >= 0 && ratio <= 100) {
+                examOptions.practicalRatio = ratio;
+            }
+        }
+        
+        const difficultyDistributionStr = formData.get("difficultyDistribution") as string;
+        if (difficultyDistributionStr) {
+            try {
+                const dist = JSON.parse(difficultyDistributionStr);
+                if (dist && typeof dist.easy === "number" && typeof dist.medium === "number" && typeof dist.hard === "number") {
+                    examOptions.difficultyDistribution = dist;
+                }
+            } catch {
+                // Invalid JSON, ignore
+            }
+        }
+
+        const language = formData.get("language") as string;
+        if (language && (language === "vi" || language === "en")) {
+            examOptions.language = language as "vi" | "en";
+        }
+
+        const explanationStyle = formData.get("explanationStyle") as string;
+        if (explanationStyle && (explanationStyle === "detailed" || explanationStyle === "concise")) {
+            examOptions.explanationStyle = explanationStyle as "detailed" | "concise";
+        }
 
         // Validate required fields
         if (!file) {
@@ -139,7 +182,7 @@ export async function POST(request: NextRequest) {
             const previousSummary = buildPreviousSummary(aggregatedQuestions);
             const languageSample = buildLanguageSample(aggregatedQuestions);
             
-            const chunkPrompt = buildChunkPrompt(questionsThisChunk, previousSummary, customInstruction, languageSample);
+            const chunkPrompt = buildChunkPrompt(questionsThisChunk, previousSummary, customInstruction, languageSample, numQuestions, examOptions);
             const contents = buildContents(documentSource, chunkPrompt);
 
             let response;
@@ -327,8 +370,13 @@ function buildChunkPrompt(
     questionsNeeded: number,
     previousSummary: string,
     customInstruction?: string,
-    languageSample?: string
+    languageSample?: string,
+    numQuestions?: number,
+    options?: ExamOptions
 ): string {
+    const isLowQuestionCount = numQuestions !== undefined && numQuestions <= 20
+    const practicalRatio = options?.practicalRatio
+    const isTheoreticalOnly = practicalRatio !== null && practicalRatio !== undefined && practicalRatio === 0
     const prompt = `# Role
 You are an expert educational assessment creator specializing in generating high-quality multiple-choice questions (MCQs) from source documents.
 
@@ -362,18 +410,66 @@ ${previousSummary && previousSummary.trim() !== "No questions generated yet." ? 
 - Correct answer must be unambiguously supported by the document
 - Incorrect options (distractors) must be factually incorrect or irrelevant, not just "none of the above"
 
+## LaTeX/Math Formatting Requirements (CRITICAL)
+- **ALWAYS wrap mathematical expressions with double dollar signs**: Use \`$$expression$$\` for EVERY equation or symbol, even when it appears within a sentence (ví dụ: \`Giải phương trình $$x^2 + y^2 = z^2$$\`).
+- **Plain text MUST stay outside the math fences**: Never emit stray \`$\`, never mix inline \`$...$\`, and never leave LaTeX commands outside \`$$ $$\`.
+- **Common LaTeX patterns you MUST use correctly** (all inside \`$$ ... $$\`):
+  - Fractions: \`$\\frac{numerator}{denominator}$\` or \`$\\frac{a}{b}$\`
+  - Superscripts: \`$x^2$\`, \`$a^{n+1}$\`
+  - Subscripts: \`$x_1$\`, \`$a_{i,j}$\`
+  - Greek letters: \`$\\alpha$\`, \`$\\beta$\`, \`$\\pi$\`, \`$\\theta$\`
+  - Operators: \`$\\sum$\`, \`$\\prod$\`, \`$\\int$\`, \`$\\sqrt{x}$\`
+  - Relations: \`$\\leq$\`, \`$\\geq$\`, \`$\\neq$\`, \`$\\approx$\`
+  - Sets: \`$\\in$\`, \`$\\subset$\`, \`$\\cup$\`, \`$\\cap$\`
+- **CRITICAL RULES**:
+  - Escape backslashes properly: Use \`\\\\\` for a single backslash in LaTeX commands
+  - Do NOT use Unicode math symbols (×, ÷, ≤, ≥) - ALWAYS use LaTeX equivalents
+  - DO NOT use inline math (\`$...$\`) anywhere—only \`$$...$$\` is allowed
+  - Test that your LaTeX syntax is valid - common errors to avoid:
+    - Missing closing \`$$\`
+    - Unescaped special characters in math mode
+    - Incorrect command names
+- **Examples of CORRECT LaTeX usage**:
+  - "Tính giá trị của $$x^2 + 5x + 6 = 0$$"
+  - "Giải thích ý nghĩa của tích phân $$\\int_0^{\\pi} \\sin(x)\\,dx$$"
+  - "Nếu $$\\alpha + \\beta = 90^\\circ$$ thì $$\\sin(\\alpha) = \\cos(\\beta)$$"
+  - "Công thức $$E = mc^2$$ biểu diễn điều gì?"
+- **Examples of INCORRECT usage (DO NOT DO THIS)**:
+  - "Calculate x²" (missing \`$$x^2$$\`)
+  - "The value is ≤ 10" (must be \`$$\\leq 10$$\`)
+  - "Use the formula E=mc²" (must be \`$$E = mc^2$$\`)
+
 ## Language & Style Requirements (CRITICAL - Consistency Required)
-${languageSample ? `- **MANDATORY LANGUAGE CONSISTENCY**: The following is a sample from previously generated questions. You MUST generate ALL new questions in the EXACT SAME language, script, and writing style as this sample:
+${(() => {
+    // Language detection hierarchy: options → customInstruction → document → previous questions
+    if (options?.language && options.language !== "auto") {
+        // Priority 1: Options language (if explicitly set)
+        const langName = options.language === "vi" ? "Vietnamese (Tiếng Việt)" : options.language === "en" ? "English" : options.language
+        return `- **REQUIRED LANGUAGE (From Options)**: Generate ALL questions in ${langName}. This is the highest priority and overrides all other language detection.
+- **CRITICAL**: Use this language consistently across ALL questions in ALL batches. Do NOT switch languages.`
+    } else if (languageSample) {
+        // Priority 2: Previous questions (for consistency across chunks)
+        return `- **MANDATORY LANGUAGE CONSISTENCY**: The following is a sample from previously generated questions. You MUST generate ALL new questions in the EXACT SAME language, script, and writing style as this sample:
 
 Sample from previous questions:
 "${languageSample}"
 
-Analyze the language, script, terminology, and style used in this sample, and replicate it precisely in all new questions. Do NOT switch languages, scripts, or styles.` : customInstruction && customInstruction.trim() ? `- **LANGUAGE PRIORITY**: 
-  1. First priority: If custom instructions specify a language or are written in a specific language, detect and use that language
-  2. Second priority: Match the document's primary language exactly
-- **CRITICAL**: Once you determine the target language from custom instructions or document, you MUST use the SAME language for ALL questions in ALL batches. Do NOT switch languages between batches.` : `- **LANGUAGE DETECTION**: Analyze the document's language, script, and writing style. Match it exactly.
-- **CRITICAL**: Once you determine the target language from the document, you MUST use the SAME language, script, and style for ALL questions in ALL batches. Do NOT switch languages between batches.`}
-${previousSummary && previousSummary.trim() !== "No questions generated yet." && !languageSample ? `- **LANGUAGE CONSISTENCY CHECK**: Review the previously generated questions above. You MUST generate new questions in the EXACT SAME language, script, and style as those previous questions.` : ""}
+Analyze the language, script, terminology, and style used in this sample, and replicate it precisely in all new questions. Do NOT switch languages, scripts, or styles.`
+    } else if (customInstruction && customInstruction.trim()) {
+        // Priority 3: Custom instruction language
+        return `- **LANGUAGE DETECTION HIERARCHY**:
+  1. **FIRST PRIORITY**: Analyze the custom instructions provided below. Detect the language used in the custom instructions and use that language for ALL questions.
+  2. **SECOND PRIORITY**: If the custom instructions don't clearly indicate a language, analyze and match the document's primary language exactly.
+- **CRITICAL**: Once you determine the target language from custom instructions or document, you MUST use the SAME language for ALL questions in ALL batches. Do NOT switch languages between batches.
+- **FLEXIBILITY**: The language can be any language (not limited to English or Vietnamese). Detect and use whatever language is present in the custom instructions or document.`
+    } else {
+        // Priority 4: Document language
+        return `- **LANGUAGE DETECTION**: Analyze the document's language, script, and writing style. Match it exactly.
+- **CRITICAL**: Once you determine the target language from the document, you MUST use the SAME language, script, and style for ALL questions in ALL batches. Do NOT switch languages between batches.
+- **FLEXIBILITY**: The language can be any language (not limited to English or Vietnamese). Detect and use whatever language is present in the document.`
+    }
+})()}
+${previousSummary && previousSummary.trim() !== "No questions generated yet." && !languageSample && (!options?.language || options.language === "auto") ? `- **LANGUAGE CONSISTENCY CHECK**: Review the previously generated questions above. You MUST generate new questions in the EXACT SAME language, script, and style as those previous questions.` : ""}
 - Use the same terminology, phrasing style, and formality level as the document (or as established in previous questions)
 - Maintain consistent linguistic features (e.g., formal vs. informal, technical vs. general vocabulary)
 - **ABSOLUTELY FORBIDDEN**: Do NOT include phrases like "According to the document", "Based on the provided document", "The document states", or any similar meta-references to the document in question content (in any language). Write questions naturally as if the information is general knowledge, not referencing a source.
@@ -381,12 +477,69 @@ ${previousSummary && previousSummary.trim() !== "No questions generated yet." &&
 ## Topic Coverage Requirements
 - Avoid repeating topics from previously generated questions (see Context section above)
 - Distribute questions across different sections/concepts in the document
-- Prioritize:
+${(() => {
+    let coverageText = ""
+    const practicalRatio = options?.practicalRatio
+    if (practicalRatio !== null && practicalRatio !== undefined) {
+        const theoreticalRatio = 100 - practicalRatio
+        if (practicalRatio === 0) {
+            coverageText = `- **THEORETICAL FOCUS (100%)**: Generate ONLY theoretical questions about concepts, definitions, principles, and abstract knowledge. Avoid practical applications or exercises.`
+        } else if (practicalRatio === 100) {
+            coverageText = `- **PRACTICAL FOCUS (100%)**: Generate ONLY practical questions that follow exercises/examples from the document. Focus on problem-solving, calculations, and applications. Before generating questions, analyze the uploaded document to identify:
+  - Exercise sections and their formats
+  - Example problem types and structures
+  - Answer explanation patterns
+  - Practical question styles (e.g., "Calculate...", "Solve...", "Apply...", "Determine...")
+  - Then strictly follow these patterns when generating questions`
+        } else {
+            coverageText = `- **PRACTICAL/THEORETICAL RATIO**: Generate approximately ${practicalRatio}% practical questions and ${theoreticalRatio}% theoretical questions. 
+  - Practical questions (${practicalRatio}%): Follow exercises/examples from the document, focus on problem-solving, calculations, and applications
+  - Theoretical questions (${theoreticalRatio}%): Focus on concepts, definitions, principles, and abstract knowledge
+  - Analyze the document to identify practical exercise patterns and theoretical content sections`
+        }
+    } else if (isTheoreticalOnly) {
+        coverageText = `- **THEORETICAL FOCUS**: Generate only theoretical questions about concepts, definitions, principles, and abstract knowledge. Avoid practical applications or exercises.`
+    } else if (isLowQuestionCount) {
+        coverageText = `- **PRACTICAL QUESTION PRIORITY**: Since the requested number of questions (${numQuestions}) is relatively low, you MUST prioritize practical questions that:
+  1. Follow the format, style, and structure of exercises/examples found in the uploaded document
+  2. Replicate the type of practical questions present in the document (e.g., problem-solving, calculations, applications)
+  3. Match the explanation style and answer format used in the document's practical sections
+  4. Cover ALL practical aspects related to the topic/context from the document
+  5. Only generate theoretical questions if explicitly requested in custom instructions or if the document contains no practical content
+- **PRACTICAL QUESTION ANALYSIS**: Before generating questions, analyze the uploaded document to identify:
+  - Exercise sections and their formats
+  - Example problem types and structures
+  - Answer explanation patterns
+  - Practical question styles (e.g., "Calculate...", "Solve...", "Apply...", "Determine...")
+  - Then strictly follow these patterns when generating questions
+- **COVERAGE GUARANTEE**: Ensure generated practical questions cover all practical aspects of the topic/context. If the document contains multiple types of practical exercises, generate questions representing each type.`
+    } else {
+        coverageText = `- Prioritize:
   1. Core concepts and definitions
   2. Relationships and cause-effect patterns
   3. Application and analysis-level understanding
   4. Specific facts, figures, or examples (when significant)
-- Avoid trivial details or peripheral information
+- Balance between theoretical understanding and practical application
+- Avoid trivial details or peripheral information`
+    }
+    return coverageText
+})()}
+${options?.difficultyDistribution ? `
+## Difficulty Distribution Requirements
+You MUST distribute questions according to the following difficulty percentages:
+- Easy: ${options.difficultyDistribution.easy}%
+- Medium: ${options.difficultyDistribution.medium}%
+- Hard: ${options.difficultyDistribution.hard}%
+
+Ensure the difficulty labels match this distribution across all generated questions.` : ""}
+${options?.language && options.language !== "auto" ? `
+## Language Preference
+- **REQUIRED LANGUAGE**: Generate ALL questions in ${options.language === "vi" ? "Vietnamese (Tiếng Việt)" : "English"}.
+- Do NOT switch languages or mix languages.
+- Use appropriate terminology and grammar for ${options.language === "vi" ? "Vietnamese" : "English"}.` : ""}
+${options?.explanationStyle && options.explanationStyle !== "auto" ? `
+## Explanation Style Requirements
+- **Explanation Style**: ${options.explanationStyle === "detailed" ? "Detailed - Provide comprehensive explanations (50-150 words) with step-by-step reasoning, examples, and context." : "Concise - Provide brief, focused explanations (20-50 words) that directly address why the answer is correct."}` : ""}
 ${customInstruction && customInstruction.trim() ? `\n## Custom Instructions (If Provided)\n=== USER-SPECIFIC REQUIREMENTS ===\n${customInstruction.trim()}\n\nApply these requirements while maintaining all schema and quality constraints above.\n` : ""}
 
 # Process / Steps

@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback, useRef } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import {
     ClockIcon,
@@ -17,6 +16,7 @@ import {
 import { cn } from "@/lib/utils"
 import { apiClient } from "@/lib/api-client"
 import { toast } from "sonner"
+import { TipTapEditor } from "@/components/tiptap-editor"
 
 interface Question {
     id: string
@@ -379,9 +379,15 @@ export default function ExamSessionPage() {
                                             >
                                                 {questionNumber}
                                             </div>
-                                            <CardTitle className="text-base font-medium flex-1">
-                                                {question.content}
-                                            </CardTitle>
+                                            <div className="text-base font-medium flex-1">
+                                                <TipTapEditor
+                                                    value={question.content}
+                                                    editable={false}
+                                                    minHeight="0px"
+                                                    showBorder={false}
+                                                    className="space-y-0"
+                                                />
+                                            </div>
                                         </div>
                                     </CardHeader>
                                     <CardContent>
@@ -420,9 +426,15 @@ export default function ExamSessionPage() {
                                                                     <div className="w-2 h-2 bg-white rounded-full" />
                                                                 )}
                                                             </div>
-                                                            <Label className="flex-1 cursor-pointer font-normal">
-                                                                {option}
-                                                            </Label>
+                                                            <div className="flex-1 cursor-pointer font-normal">
+                                                                <TipTapEditor
+                                                                    value={option}
+                                                                    editable={false}
+                                                                    minHeight="0px"
+                                                                    showBorder={false}
+                                                                    className="space-y-0"
+                                                                />
+                                                            </div>
                                                         </button>
                                                     )
                                                 }

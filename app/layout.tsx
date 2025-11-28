@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "EQuiz - AI-Powered Quiz Platform",
-  description: "Create and take quizzes with AI-powered question generation",
+  title: "EQuiz - AI-Powered MCQs Platform",
+  description: "Create and take MCQs with AI-powered question generation",
 };
 
 export default function RootLayout({
