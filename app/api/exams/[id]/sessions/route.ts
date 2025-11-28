@@ -66,7 +66,11 @@ export async function POST(
         const exam = await prisma.exam.findUnique({
             where: identifier.field === "id" ? { id: identifier.value } : { code: identifier.value },
             include: {
-                questions: true,
+                questions: {
+                    orderBy: {
+                        createdAt: "asc",
+                    },
+                },
             },
         })
 
@@ -130,6 +134,9 @@ export async function POST(
                                 content: true,
                                 options: true,
                                 // Don't include correctIdx or explanation during exam
+                            },
+                            orderBy: {
+                                createdAt: "asc",
                             },
                         },
                     },

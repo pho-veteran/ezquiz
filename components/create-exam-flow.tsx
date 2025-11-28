@@ -208,7 +208,10 @@ export default function CreateExamFlow() {
             setIsPublishing(true)
             const updatedExam = await updateExam(
                 { code: examCode },
-                { status: "PUBLISHED" }
+                { 
+                    status: "PUBLISHED",
+                    ...(latestDurationMinutes !== null && latestDurationMinutes > 0 && { durationMinutes: latestDurationMinutes })
+                }
             )
             setDraftExam(updatedExam)
         setCurrentStep(4)

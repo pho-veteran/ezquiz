@@ -216,7 +216,8 @@ export async function PATCH(
             if (
                 trimmedTitle !== undefined ||
                 trimmedCode !== undefined ||
-                normalizedStatus !== undefined
+                normalizedStatus !== undefined ||
+                durationMinutes !== undefined
             ) {
                 await tx.exam.update({
                     where: { id: existingExam.id },

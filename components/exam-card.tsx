@@ -49,7 +49,7 @@ export function ExamCard({ exam }: ExamCardProps) {
                 </Link>
                 <Link href={`/exam/${exam.code}`} className="flex-1">
                     <Button className="w-full">
-                        Xem chi tiết
+                        Thi thử
                     </Button>
                 </Link>
             </CardFooter>

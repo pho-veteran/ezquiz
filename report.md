@@ -116,6 +116,57 @@ Biểu đồ tổng quan nhấn mạnh vai trò trung tâm của giáo viên tro
 | Làm bài & chấm | Học sinh | Hoàn thành bài thi và nhận phản hồi | Nhận link → xác thực → làm bài → gửi bài → hệ thống chấm điểm tự động → trả điểm + giải thích + bảng so sánh | Mất kết nối → lưu tạm, cho phép resume trong thời gian hợp lệ; phát hiện gian lận (truy cập nhiều tab) → cảnh báo giáo viên |
 | Dashboard thống kê | Giáo viên/Admin | Quan sát hiệu quả lớp học | Lọc theo lớp/đề → xem phổ điểm, knowledge gap, top câu khó → xuất báo cáo PDF | Không có dữ liệu → hiển thị trạng thái chờ; quyền truy cập hạn chế → yêu cầu admin phê duyệt quyền xem |
 
+### 3.4. Biểu đồ kiến trúc hệ thống (Architecture Diagram)
+
+```mermaid
+flowchart TB
+    subgraph "Presentation Layer"
+        UI[Next.js Frontend<br/>React + TypeScript]
+        COMP[shadcn/ui Components<br/>Tiptap + KaTeX]
+    end
+    
+    subgraph "Application Layer"
+        SA[Server Actions<br/>Next.js App Router]
+        AUTH[Authentication<br/>Clerk Middleware]
+        GRADING[Chấm điểm tự động<br/>Deterministic Algorithm]
+    end
+    
+    subgraph "Data & Services Layer"
+        AI[Google AI SDK<br/>Gemini 2.0 Flash]
+        FILE[Google AI File API<br/>File Upload & Processing]
+        DB[(MongoDB Atlas<br/>Prisma ORM)]
+        AUTH_SVC[Clerk Auth Service]
+    end
+    
+    UI --> SA
+    COMP --> SA
+    SA --> AUTH
+    AUTH --> AUTH_SVC
+    SA --> AI
+    SA --> FILE
+    SA --> GRADING
+    SA --> DB
+    FILE --> AI
+    AI --> SA
+    GRADING --> DB
+    AUTH_SVC --> DB
+    
+    style UI fill:#e1f5ff
+    style SA fill:#fff4e1
+    style AI fill:#ffe1f5
+    style DB fill:#e1ffe1
+```
+
+Biểu đồ kiến trúc thể hiện ba lớp chính của hệ thống Equiz:
+
+- **Presentation Layer:** Giao diện người dùng được xây dựng bằng Next.js Frontend với React và TypeScript, tích hợp các component từ shadcn/ui và công cụ soạn thảo Tiptap + KaTeX để hiển thị công thức toán học.
+
+- **Application Layer:** Server Actions xử lý toàn bộ logic nghiệp vụ, bao gồm xác thực qua Clerk middleware, điều phối gọi AI, và thuật toán chấm điểm tự động. Tất cả đều chạy trên Next.js App Router để tối ưu hiệu năng.
+
+- **Data & Services Layer:** Google AI SDK kết nối với Gemini 2.0 Flash để sinh câu hỏi, Google AI File API xử lý upload và đọc file đa định dạng, MongoDB Atlas lưu trữ dữ liệu thông qua Prisma ORM, và Clerk cung cấp dịch vụ xác thực tập trung.
+
+Kiến trúc này đảm bảo tính tách biệt trách nhiệm, dễ mở rộng và bảo trì, đồng thời tối ưu chi phí vận hành cho môi trường serverless.
+
 ### 3.5. Biểu đồ tuần tự (Sequence Diagram)
 
 ```mermaid

@@ -39,6 +39,9 @@ export async function GET(
                                 options: true,
                                 // Don't include correctIdx or explanation during exam
                             },
+                            orderBy: {
+                                createdAt: "asc",
+                            },
                         },
                     },
                 },
